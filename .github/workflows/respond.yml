@@ -22,7 +22,7 @@ jobs:
       actions: read
     steps:
       # a run that stopped before the check has no result file: the comment then says so
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         continue-on-error: true
         with:
           pattern: check-result-*
