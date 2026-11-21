@@ -1,0 +1,18 @@
+# SPDX-FileCopyrightText: 2026 Mohammadreza Kadivar
+# SPDX-License-Identifier: AGPL-3.0-or-later
+name: cockpit
+version: 0.1.0
+description: "Inbox, outbox gate, live lanes, tickets, and QA evidence for a Hermes workspace."
+author: kadivar
+license: AGPL-3.0-or-later
+manifest_version: 1
+kind: standalone
+provides_tools: []
+provides_hooks:
+  - pre_tool_call
+  - transform_tool_result
+  - transform_terminal_output
+requires_hermes: ">=0.22.2"
+platforms:
+  - linux
+  - macos

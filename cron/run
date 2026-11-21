@@ -1,0 +1,18 @@
+#!/bin/sh
+# SPDX-FileCopyrightText: 2026 Mohammadreza Kadivar
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# Hermes cron does not inherit a login PATH. The command is the copy next to Hermes, or the plugin tree when this file is still in the repo.
+# A seat job's copy lives in profiles/<seat>/scripts, three levels under that same Hermes home.
+here=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
+if [ -x "$here/../bin/cockpit" ]; then
+  bin=$here/../bin/cockpit
+elif [ -x "$here/../plugins/cockpit/bin/cockpit" ]; then
+  bin=$here/../plugins/cockpit/bin/cockpit
+elif [ -x "$here/../../../bin/cockpit" ]; then
+  bin=$here/../../../bin/cockpit
+else
+  echo "cockpit: not found next to $here" >&2
+  exit 127
+fi
+exec "$bin" "$@"

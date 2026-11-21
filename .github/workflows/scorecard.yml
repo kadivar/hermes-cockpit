@@ -1,0 +1,39 @@
+# SPDX-FileCopyrightText: 2026 Mohammadreza Kadivar
+# SPDX-License-Identifier: AGPL-3.0-or-later
+name: scorecard
+# The OpenSSF Scorecard of this repository, published (the badge reads it) and uploaded to code scanning: weekly, on
+# every push to the release channel, and when a branch rule changes. The published run accepts only a fixed set of
+# steps, so nothing else belongs in this job.
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "41 4 * * 1"
+  branch_protection_rule:
+permissions: {}
+jobs:
+  analysis:
+    runs-on: ubuntu-latest
+    permissions:
+      # the result goes to code scanning, and is signed with the run's own identity to be published
+      security-events: write
+      id-token: write
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: ossf/scorecard-action@4eaacf0543bb3f2c246792bd56e8cdeffafb205a # v2.4.3
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          publish_results: true
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: scorecard-results
+          path: results.sarif
+          retention-days: 5
+      - uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          sarif_file: results.sarif

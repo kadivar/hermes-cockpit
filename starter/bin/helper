@@ -1,0 +1,31 @@
+#!/bin/sh
+# Example helper program: one made-up local service a human starts and stops from the Helpers page.
+#
+# Contract (helpers.yaml, named by pack.yaml `helpers: helpers.yaml`):
+#   helpers:
+#     web: {label: "Web", group: stack, argv: ["{pack}/bin/helper", "{helper}", "{verb}"], verbs: [start, stop]}
+#   groups:
+#     stack: {label: "Stack", status: {argv: ["{pack}/bin/helper", "all", "status"]}}
+# A verb answers with its exit code:  0 ok   1 failed   2 still working   3 a dependency is down
+# A status command prints one line per service, `<name>: running|stopped|skipped|failed|working (<detail>)`.
+# Replace the marker file with your own start, stop and probe commands.
+name="${1:?usage: helper NAME start|stop|status}"
+verb="${2:?usage: helper NAME start|stop|status}"
+state="${COCKPIT_STARTER_STATE:-$(dirname "$0")/../../.cockpit-starter}"
+mkdir -p "$state"
+case "$verb" in
+  start)
+    if [ -n "$HELPER_NEEDS" ] && [ ! -f "$state/helper-$HELPER_NEEDS.on" ]; then
+      echo "$name: $HELPER_NEEDS is not running"; exit 3
+    fi
+    date > "$state/helper-$name.on"; echo "$name: running (started)";;
+  stop)
+    rm -f "$state/helper-$name.on"; echo "$name: stopped";;
+  status)
+    for marker in "$state"/helper-*.on; do
+      [ -f "$marker" ] || { echo "$name: stopped"; exit 0; }
+      service="$(basename "$marker" .on)"; echo "${service#helper-}: running (since $(cat "$marker"))"
+    done;;
+  *)
+    echo "helper: no verb $verb (start, stop, status)" >&2; exit 1;;
+esac

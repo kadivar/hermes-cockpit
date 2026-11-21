@@ -1,0 +1,212 @@
+# SPDX-FileCopyrightText: 2026 Mohammadreza Kadivar
+# SPDX-License-Identifier: AGPL-3.0-or-later
+name: bravo
+board: bravo
+ticket_pattern: ^[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+$
+branch_prefix: work
+commit_trailer: '[{ticket}]'
+base_branch: main
+workspace_branch: trunk
+records_dir: records
+human_browser_port: 9333
+seats:
+  slots: 1
+  intake: 1
+  reviewer: 1
+  analyst: 1
+budget:
+  monthly_usd: 40
+  plan_window_max_pct: 70
+shared_chrome_hours: 2
+grooming:
+  - {name: push, intent: push-branch}
+  - rebase
+  - {name: ticket, intent: pr-edit, field: title_append}
+bump_sequence:
+  stages:
+    - {name: push, intent: push-branch}
+    - {name: title, intent: pr-edit, field: title_append}
+    - {name: owner, intent: pr-edit, field: assignee}
+    - {name: move, intent: tracker-transition, after: [owner, title]}
+  barrier: title
+advisories:
+  sources: [osv, php.net, nginx, hn]
+  alert: {exploited: false, high_days: 0}
+  minutes: 45
+working_days: [0, 1, 2, 3]
+hours:
+  standup: 8
+  bumps: "05:20"
+  digest: 8
+  perf: 8
+  export: 15
+  ci_settle_minutes: 12
+  standup_window: "07:00"
+  no_ci_minutes: 45
+refused:
+  hosts: ["secret.north.test"]
+  commands: []
+allowed:
+  reads: ["git diff"]
+stores:
+  - name: north-cache
+    kind: copy
+    minimum: 1
+    names: [site]
+    present: true
+    capacity: 2
+    have: [site]
+privileged:
+  environment: desk
+  label: north-admin
+  scope: human
+logins:
+  scope: lane
+  accounts: accounts.yaml
+  shared:
+    - origin: https://app.north.test
+      email: shared@north.test
+      readers: [tester-1, reviewer]
+notify:
+  standup: ["north-notify"]
+  ci_green: ["bin/tell", "--to", "north:{ticket}"]
+  ready_for_review: ["bin/tell", "--to", "north:{ticket}", "--ready"]
+  updated_after_review: ["bin/tell", "--to", "north:{ticket}", "--again"]
+  pr_stale: ["bin/tell", "--to", "north:{ticket}", "--stale"]
+skills_dir: '@skills'
+slot_provider: none
+runtime: worktree
+slot_browser: ["printf", "north-browser"]
+dev_servers:
+  - ["printf", "north-server"]
+agent:
+  home: homes/bravo
+providers:
+  judgment:
+    hermes_provider: fixture-a
+    model: fixture-large
+  worker:
+    hermes_provider: fixture-b
+    model: fixture-fast
+  advisor:
+    hermes_provider: fixture-a
+    model: fixture-large
+  coding:
+    command:
+    - 'true'
+    display_name: Chat
+    transcript_glob: '{root}/lane-runs/{ticket}/*.jsonl'
+roles:
+  intake: judgment
+  worker: worker
+  tester: worker
+  reviewer: judgment
+  analyst: worker
+  gatekeeper: judgment
+  advisor: advisor
+board_workdir: "{root}/repos/ledger"
+testflow:
+  never_write: ["/fleet/"]
+  run_dir: "round{n}"
+slots:
+  provider: command
+  ports: {web: 7200, cdp: 9400}
+  state_dir: "{root}/north/{slot}"
+  data_dir: "{root}/north-data/{slot}"
+  lock_wait_seconds: 5
+  idle_minutes: 90
+  exec_refuse: ["\\bsite\\s+--purge\\b"]
+  commands:
+    up: {argv: [bin/runtime, --slot, "{slot}", --do, start, --port, "{port.web}"]}
+    down: {argv: [bin/runtime, --slot, "{slot}", --do, stop]}
+    reset: {argv: [bin/runtime, --slot, "{slot}", --do, wipe]}
+    ready: {argv: [bin/runtime, --slot, "{slot}", --do, check]}
+    status: {argv: [bin/runtime, --slot, "{slot}", --do, describe, --port, "{port.web}"]}
+    exec: {argv: [bin/runtime, --slot, "{slot}", --do, run, --, "{args...}"], passthrough: true}
+    test: {argv: [bin/runtime, --slot, "{slot}", --do, suite, --, "{args...}"], passthrough: true}
+    login: {argv: [bin/runtime, --slot, "{slot}", --do, demo-user], who: human}
+    cache-warm: {argv: [bin/runtime, --slot, "{slot}", --do, cache-warm, --port, "{port.cdp}"]}
+  session:
+    open: [bin/runtime, --slot, "{slot}", --do, session-open]
+    close: [bin/runtime, --slot, "{slot}", --do, session-close]
+  toggles:
+    cdn: {on: [bin/runtime, --slot, "{slot}", --do, cdn, --, "on"], off: [bin/runtime, --slot, "{slot}", --do, cdn, --, "off"], status: [bin/runtime, --slot, "{slot}", --do, cdn, --, "status"]}
+plugins:
+  trace-tap: {sample_rate: 0.25}
+extra_plugins:
+  - name: trace-tap
+    path: plugins/trace-tap
+    where: [worker, tester]
+mcp_servers:
+  fleet:
+    url: https://mcp.north.test/sse
+    headers_env: {Authorization: NORTH_MCP_AUTH}
+    exclude_tools: [deploy_*]
+seat_config:
+  _common:
+    mcp: [fleet]
+    hermes:
+      agent:
+        max_turns: 80
+      terminal:
+        timeout: 600
+  tester:
+    memory_seed: memory.md
+    soul: souls/tester.md
+    hermes:
+      display:
+        compact: true
+  worker:
+    env:
+      NORTH_ZONE: b
+    skills:
+      - name: bench-notes
+        path: seat-skills/bench-notes
+  root:
+    soul: souls/root.md
+helpers: helpers.yaml
+tracker:
+  url: https://jira.north.test
+  project: NORTH
+  kind: jira   # Jira's REST API with the auth_env credentials; omit for Hermes's Jira connector
+  auth_env: [NORTH_TICKETS_USER, NORTH_TICKETS_KEY]
+  issue_type: Chore
+forge:
+  org: north
+  human_login: north-dev
+  bots: [north-builder]
+  mention_tags: ["@north-dev", "#north-human"]
+  bump_batch: "{project}-BUMP-{month}"
+  review_labels:
+    APPROVE: {add: [approved], remove: [changes wanted]}
+perf:
+  command: ["bin/metrics", "{record}", "--weekly"]
+export:
+  keep: 6
+  commands:
+    - ["bin/snapshot", "{records}", "ledger"]
+    - ["bin/snapshot", "{records}", "boards"]
+    - ["bin/snapshot", "{records}", "vault"]
+watchers:
+  limits:
+    base-watch: {stale_minutes: 900}
+  base:
+    noise: ["CHANGELOG*", "fixtures/**"]
+  ci:
+    failed_states: [stale]
+environments:
+  - {name: bench, slot: true}
+  - {name: preprod, slot: false, origins: {app: "https://app.north.test", portal: "https://portal.north.test"}}
+capacity:
+  test_needs_slot: true
+  audit_blocks_tests: false
+prompts:
+  plan-format: prompts/north-plan.md
+advisor:
+  in_tool: true
+  report_line: '^north-advice: C0 (OK|DRIFT) / C2 (OK|FIX)$'
+  checkpoints:
+    C0: {answers: [OK, DRIFT]}
+    C2: {answers: [OK, FIX]}
+awake:
+  command: ["bin/nosleep", "200"]

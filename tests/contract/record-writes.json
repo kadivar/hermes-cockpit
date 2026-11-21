@@ -1,0 +1,492 @@
+{
+ "writes": [
+  {
+   "file": "kernel/cockpitlib/acts.py",
+   "function": "run_watcher",
+   "form": "open",
+   "target": "os.path.join(watch_dir(), f'.run-{script}.lock')",
+   "count": 1,
+   "reason": "lock file: the Run now guard holds a flock on it and never reads what it holds"
+  },
+  {
+   "file": "kernel/cockpitlib/demo.py",
+   "function": "Demo._local",
+   "form": "open",
+   "target": "os.path.join(os.path.dirname(pack), 'repos.yaml')",
+   "count": 1,
+   "reason": "the demonstration's own sandbox under the temp folder, written before any process reads it: no shared record"
+  },
+  {
+   "file": "kernel/cockpitlib/demo.py",
+   "function": "Demo._local",
+   "form": "open",
+   "target": "pack",
+   "count": 1,
+   "reason": "the demonstration's own sandbox under the temp folder, written before any process reads it: no shared record"
+  },
+  {
+   "file": "kernel/cockpitlib/demo.py",
+   "function": "Demo._local",
+   "form": "open",
+   "target": "skills",
+   "count": 1,
+   "reason": "the demonstration's own sandbox under the temp folder, written before any process reads it: no shared record"
+  },
+  {
+   "file": "kernel/cockpitlib/demo.py",
+   "function": "Demo.play",
+   "form": "open",
+   "target": "body",
+   "count": 1,
+   "reason": "the demonstration's own draft, handed to one command by path: no shared record"
+  },
+  {
+   "file": "kernel/cockpitlib/demo.py",
+   "function": "Demo.play",
+   "form": "open",
+   "target": "os.path.join(tree, 'change.txt')",
+   "count": 1,
+   "reason": "a file of the demonstration's checkout, committed by git: no record"
+  },
+  {
+   "file": "kernel/cockpitlib/gate.py",
+   "function": "sweep",
+   "form": "os.replace",
+   "target": "requested",
+   "count": 2,
+   "reason": "atomic rename between the sweep's request and serving markers"
+  },
+  {
+   "file": "kernel/cockpitlib/gate.py",
+   "function": "sweep",
+   "form": "os.replace",
+   "target": "serving",
+   "count": 1,
+   "reason": "atomic rename between the sweep's request and serving markers"
+  },
+  {
+   "file": "kernel/cockpitlib/helpers.py",
+   "function": "run",
+   "form": "open",
+   "target": "log_path",
+   "count": 1,
+   "reason": "log stream: the helper's steps write into this handle for as long as they run"
+  },
+  {
+   "file": "kernel/cockpitlib/migrate.py",
+   "function": "rollback",
+   "form": "shutil.copy",
+   "target": "binding",
+   "count": 1,
+   "reason": "migration rollback: restores an installation's files from its own snapshot, once, by hand"
+  },
+  {
+   "file": "kernel/cockpitlib/migrate.py",
+   "function": "rollback",
+   "form": "shutil.copy",
+   "target": "target",
+   "count": 1,
+   "reason": "migration rollback: restores an installation's files from its own snapshot, once, by hand"
+  },
+  {
+   "file": "kernel/cockpitlib/migrate.py",
+   "function": "rollback",
+   "form": "shutil.copytree",
+   "target": "dest",
+   "count": 2,
+   "reason": "migration rollback: restores an installation's files from its own snapshot, once, by hand"
+  },
+  {
+   "file": "kernel/cockpitlib/pack.py",
+   "function": "_open",
+   "form": "open",
+   "target": "path",
+   "count": 1,
+   "reason": "a read: the wrapper passes the caller's arguments through and every caller reads"
+  },
+  {
+   "file": "kernel/cockpitlib/pack_migration.py",
+   "function": "Journal.add",
+   "form": "open",
+   "target": "self.path",
+   "count": 1,
+   "reason": "migration: moves and snapshots an installation's files once, with its own journal and rollback"
+  },
+  {
+   "file": "kernel/cockpitlib/pack_migration.py",
+   "function": "_convert_intents",
+   "form": "open",
+   "target": "path",
+   "count": 1,
+   "reason": "migration: moves and snapshots an installation's files once, with its own journal and rollback"
+  },
+  {
+   "file": "kernel/cockpitlib/pack_migration.py",
+   "function": "_move",
+   "form": "shutil.move",
+   "target": "target",
+   "count": 1,
+   "reason": "migration: moves and snapshots an installation's files once, with its own journal and rollback"
+  },
+  {
+   "file": "kernel/cockpitlib/pack_migration.py",
+   "function": "_snapshot",
+   "form": "shutil.copy2",
+   "target": "os.path.join(folder, 'editor', path)",
+   "count": 1,
+   "reason": "migration: moves and snapshots an installation's files once, with its own journal and rollback"
+  },
+  {
+   "file": "kernel/cockpitlib/pack_migration.py",
+   "function": "_snapshot",
+   "form": "shutil.copy2",
+   "target": "os.path.join(folder, name)",
+   "count": 1,
+   "reason": "migration: moves and snapshots an installation's files once, with its own journal and rollback"
+  },
+  {
+   "file": "kernel/cockpitlib/pack_migration.py",
+   "function": "_snapshot",
+   "form": "shutil.copytree",
+   "target": "os.path.join(folder, 'profiles')",
+   "count": 1,
+   "reason": "migration: moves and snapshots an installation's files once, with its own journal and rollback"
+  },
+  {
+   "file": "kernel/cockpitlib/pack_migration.py",
+   "function": "_write_config",
+   "form": "open",
+   "target": "os.path.join(home, 'config.yaml')",
+   "count": 1,
+   "reason": "migration: moves and snapshots an installation's files once, with its own journal and rollback"
+  },
+  {
+   "file": "kernel/cockpitlib/pack_migration.py",
+   "function": "apply",
+   "form": "open",
+   "target": "jobs_path",
+   "count": 1,
+   "reason": "migration: moves and snapshots an installation's files once, with its own journal and rollback"
+  },
+  {
+   "file": "kernel/cockpitlib/pack_migration.py",
+   "function": "apply",
+   "form": "open",
+   "target": "os.path.join(home, 'SOUL.md')",
+   "count": 1,
+   "reason": "migration: moves and snapshots an installation's files once, with its own journal and rollback"
+  },
+  {
+   "file": "kernel/cockpitlib/pack_migration.py",
+   "function": "apply",
+   "form": "open",
+   "target": "path",
+   "count": 1,
+   "reason": "migration: moves and snapshots an installation's files once, with its own journal and rollback"
+  },
+  {
+   "file": "kernel/cockpitlib/pack_migration.py",
+   "function": "rollback",
+   "form": "shutil.copy2",
+   "target": "os.path.join(workspace(), relative)",
+   "count": 1,
+   "reason": "migration: moves and snapshots an installation's files once, with its own journal and rollback"
+  },
+  {
+   "file": "kernel/cockpitlib/pack_migration.py",
+   "function": "rollback",
+   "form": "shutil.copy2",
+   "target": "target",
+   "count": 2,
+   "reason": "migration: moves and snapshots an installation's files once, with its own journal and rollback"
+  },
+  {
+   "file": "kernel/cockpitlib/pack_migration.py",
+   "function": "rollback",
+   "form": "shutil.copytree",
+   "target": "target",
+   "count": 1,
+   "reason": "migration: moves and snapshots an installation's files once, with its own journal and rollback"
+  },
+  {
+   "file": "kernel/cockpitlib/pack_migration.py",
+   "function": "rollback",
+   "form": "shutil.move",
+   "target": "row['source']",
+   "count": 1,
+   "reason": "migration: moves and snapshots an installation's files once, with its own journal and rollback"
+  },
+  {
+   "file": "kernel/cockpitlib/record.py",
+   "function": "encode",
+   "form": "open",
+   "target": "concat",
+   "count": 1,
+   "reason": "recorder working file: the frame list handed to the encoder in the same call"
+  },
+  {
+   "file": "kernel/cockpitlib/record.py",
+   "function": "run_recorder",
+   "form": "open",
+   "target": "os.path.join(frames, 'done')",
+   "count": 1,
+   "reason": "recorder marker: an empty file whose presence is the message"
+  },
+  {
+   "file": "kernel/cockpitlib/record.py",
+   "function": "run_recorder",
+   "form": "open",
+   "target": "os.path.join(frames, 'ready')",
+   "count": 1,
+   "reason": "recorder marker: an empty file whose presence is the message"
+  },
+  {
+   "file": "kernel/cockpitlib/record.py",
+   "function": "run_recorder._keep",
+   "form": "open",
+   "target": "os.path.join(frames, name)",
+   "count": 1,
+   "reason": "recorder frame: a new numbered file only the recorder reads before it is encoded"
+  },
+  {
+   "file": "kernel/cockpitlib/record.py",
+   "function": "start",
+   "form": "open",
+   "target": "os.path.join(_state_dir(), f'{session}.log')",
+   "count": 1,
+   "reason": "log stream: the recorder child writes into this handle"
+  },
+  {
+   "file": "kernel/cockpitlib/record.py",
+   "function": "stop",
+   "form": "open",
+   "target": "os.path.join(frames, 'stop')",
+   "count": 1,
+   "reason": "recorder marker: an empty file whose presence is the message"
+  },
+  {
+   "file": "kernel/cockpitlib/repo_gates.py",
+   "function": "_run",
+   "form": "open",
+   "target": "log_path",
+   "count": 1,
+   "reason": "log stream: the gate's commands write into this handle for as long as they run"
+  },
+  {
+   "file": "kernel/cockpitlib/sandbox.py",
+   "function": "copy_repos",
+   "form": "open",
+   "target": "told",
+   "count": 1,
+   "reason": "the sandbox builder (the test fixtures and `cockpit demo`): files of a workspace nothing else has opened yet"
+  },
+  {
+   "file": "kernel/cockpitlib/sandbox.py",
+   "function": "copy_repos",
+   "form": "shutil.copytree",
+   "target": "root",
+   "count": 1,
+   "reason": "the sandbox builder (the test fixtures and `cockpit demo`): files of a workspace nothing else has opened yet"
+  },
+  {
+   "file": "kernel/cockpitlib/sandbox.py",
+   "function": "repos",
+   "form": "open",
+   "target": "os.path.join(repo, 'README')",
+   "count": 1,
+   "reason": "the sandbox builder (the test fixtures and `cockpit demo`): files of a workspace nothing else has opened yet"
+  },
+  {
+   "file": "kernel/cockpitlib/sandbox.py",
+   "function": "shell",
+   "form": "open",
+   "target": "os.path.join(home, 'known-providers')",
+   "count": 1,
+   "reason": "the sandbox builder (the test fixtures and `cockpit demo`): files of a workspace nothing else has opened yet"
+  },
+  {
+   "file": "kernel/cockpitlib/scaffold.py",
+   "function": "_write_new",
+   "form": "open",
+   "target": "path",
+   "count": 1,
+   "reason": "init: builds a new pack folder beside the target and renames it in, and writes the binding through its own scratch file"
+  },
+  {
+   "file": "kernel/cockpitlib/scaffold.py",
+   "function": "write",
+   "form": "open",
+   "target": "scratch",
+   "count": 1,
+   "reason": "init: builds a new pack folder beside the target and renames it in, and writes the binding through its own scratch file"
+  },
+  {
+   "file": "kernel/cockpitlib/scaffold.py",
+   "function": "write",
+   "form": "os.rename",
+   "target": "pack_dir",
+   "count": 1,
+   "reason": "init: builds a new pack folder beside the target and renames it in, and writes the binding through its own scratch file"
+  },
+  {
+   "file": "kernel/cockpitlib/scaffold.py",
+   "function": "write",
+   "form": "os.replace",
+   "target": "path",
+   "count": 1,
+   "reason": "init: builds a new pack folder beside the target and renames it in, and writes the binding through its own scratch file"
+  },
+  {
+   "file": "kernel/cockpitlib/scaffold.py",
+   "function": "write",
+   "form": "shutil.copy2",
+   "target": "backup",
+   "count": 1,
+   "reason": "init: builds a new pack folder beside the target and renames it in, and writes the binding through its own scratch file"
+  },
+  {
+   "file": "kernel/cockpitlib/scaffold.py",
+   "function": "write",
+   "form": "shutil.copy2",
+   "target": "os.path.join(target, name)",
+   "count": 1,
+   "reason": "init: builds a new pack folder beside the target and renames it in, and writes the binding through its own scratch file"
+  },
+  {
+   "file": "kernel/cockpitlib/setup.py",
+   "function": "_back_up_seat",
+   "form": "shutil.copy2",
+   "target": "os.path.join(dest, name)",
+   "count": 1,
+   "reason": "seat backup: a copy of a seat's files into a new folder"
+  },
+  {
+   "file": "kernel/cockpitlib/setup.py",
+   "function": "_copy_script",
+   "form": "shutil.copy",
+   "target": "copied",
+   "count": 1,
+   "reason": "seat setup: a pack script copied into the Hermes home"
+  },
+  {
+   "file": "kernel/cockpitlib/slots.py",
+   "function": "CommandProvider.run",
+   "form": "open",
+   "target": "os.path.join(state_dir(int(slot)), f'{verb}.log')",
+   "count": 1,
+   "reason": "log of one slot command, written by the process that ran it"
+  },
+  {
+   "file": "kernel/cockpitlib/slots.py",
+   "function": "warm_slot",
+   "form": "open",
+   "target": "os.path.join(folder, 'bringup.log')",
+   "count": 1,
+   "reason": "log stream: the bring-up child writes into this handle"
+  },
+  {
+   "file": "kernel/cockpitlib/vault.py",
+   "function": "_copy_file",
+   "form": "shutil.copy2",
+   "target": "dest",
+   "count": 1,
+   "reason": "vault: key and login material written 0600 by the vault's own code, which no lane reads while it is written"
+  },
+  {
+   "file": "kernel/cockpitlib/vault.py",
+   "function": "_forget",
+   "form": "os.open",
+   "target": "path",
+   "count": 1,
+   "reason": "vault: key and login material written 0600 by the vault's own code, which no lane reads while it is written"
+  },
+  {
+   "file": "kernel/cockpitlib/vault.py",
+   "function": "_remember",
+   "form": "os.open",
+   "target": "path",
+   "count": 1,
+   "reason": "vault: key and login material written 0600 by the vault's own code, which no lane reads while it is written"
+  },
+  {
+   "file": "kernel/cockpitlib/vault.py",
+   "function": "_restore_seats",
+   "form": "os.open",
+   "target": "os.path.join(store, 'vault.key')",
+   "count": 1,
+   "reason": "vault: key and login material written 0600 by the vault's own code, which no lane reads while it is written"
+  },
+  {
+   "file": "kernel/cockpitlib/vault.py",
+   "function": "_write_recipient",
+   "form": "os.open",
+   "target": "path",
+   "count": 1,
+   "reason": "vault: key and login material written 0600 by the vault's own code, which no lane reads while it is written"
+  },
+  {
+   "file": "kernel/cockpitlib/vault.py",
+   "function": "backup_vault",
+   "form": "os.open",
+   "target": "note",
+   "count": 1,
+   "reason": "vault: key and login material written 0600 by the vault's own code, which no lane reads while it is written"
+  },
+  {
+   "file": "kernel/cockpitlib/vault.py",
+   "function": "restore_vault",
+   "form": "os.open",
+   "target": "_hermes_key()",
+   "count": 1,
+   "reason": "vault: key and login material written 0600 by the vault's own code, which no lane reads while it is written"
+  },
+  {
+   "file": "kernel/cockpitlib/vault_book.py",
+   "function": "Scope._save_document",
+   "form": "os.open",
+   "target": "self.index_path",
+   "count": 1,
+   "reason": "vault: the index and the audit trail are written 0600 by the vault's own code (the audit line is one O_APPEND write)"
+  },
+  {
+   "file": "kernel/cockpitlib/vault_book.py",
+   "function": "VaultAudit.add",
+   "form": "os.open",
+   "target": "self._path()",
+   "count": 1,
+   "reason": "vault: the index and the audit trail are written 0600 by the vault's own code (the audit line is one O_APPEND write)"
+  },
+  {
+   "file": "kernel/cockpitlib/vault_book.py",
+   "function": "VaultBook.rename_vault",
+   "form": "os.rename",
+   "target": "target.root",
+   "count": 1,
+   "reason": "vault: the index and the audit trail are written 0600 by the vault's own code (the audit line is one O_APPEND write)"
+  },
+  {
+   "file": "kernel/cockpitlib/worktree.py",
+   "function": "_prepare",
+   "form": "shutil.copy2",
+   "target": "copied",
+   "count": 1,
+   "reason": "worktree preparation: copies files into a checkout, not into the records"
+  },
+  {
+   "file": "kernel/cockpitlib/worktree.py",
+   "function": "_prepare",
+   "form": "shutil.copy2",
+   "target": "written",
+   "count": 1,
+   "reason": "worktree preparation: copies files into a checkout, not into the records"
+  },
+  {
+   "file": "kernel/cockpitlib/worktree.py",
+   "function": "_prepare",
+   "form": "shutil.copytree",
+   "target": "copied",
+   "count": 1,
+   "reason": "worktree preparation: copies files into a checkout, not into the records"
+  }
+ ]
+}

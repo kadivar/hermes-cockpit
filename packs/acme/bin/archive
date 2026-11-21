@@ -1,0 +1,7 @@
+#!/bin/sh
+# SPDX-FileCopyrightText: 2026 Mohammadreza Kadivar
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# Fixture export step: one line per archive; the name in ACME_ARCHIVE_FAIL fails.
+[ "$ACME_ARCHIVE_FAIL" = "$1" ] && { echo "acme archive $1 refused" >&2; exit 5; }
+printf "acme-archive|%s|%s\n" "$1" "$2" >> "$COCKPIT_ROOT/export.log"

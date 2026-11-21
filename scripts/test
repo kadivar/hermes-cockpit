@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# SPDX-FileCopyrightText: 2026 Mohammadreza Kadivar
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# The full suite on several workers (TEST_WORKERS, default 6). Arguments go to pytest; a -n of yours wins.
+# TEST_WORKERS=0 is one process, on purpose. Without pytest and pytest-xdist it stops and names the install command:
+# it never falls back to one slow process by itself.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+python=.venv/bin/python
+[ -x "$python" ] || python=python3
+workers=(-n "${TEST_WORKERS:-6}" --dist worksteal)
+for arg in "$@"; do
+  case "$arg" in -n|-n*|--numprocesses*) workers=() ;; esac
+done
+if [ "${TEST_WORKERS:-6}" = "0" ]; then
+  workers=()
+elif ! "$python" -c 'import pytest, xdist' 2>/dev/null; then
+  echo "scripts/test: $python has no pytest with pytest-xdist. Install the test tools:" >&2
+  echo "  uv venv .venv && uv pip install --python .venv/bin/python -e '.[test]'" >&2
+  echo "(TEST_WORKERS=0 runs one process on purpose.)" >&2
+  exit 2
+fi
+exec "$python" -m pytest ${workers[@]+"${workers[@]}"} "$@"

@@ -1,0 +1,9 @@
+#!/bin/sh
+# SPDX-FileCopyrightText: 2026 Mohammadreza Kadivar
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# Fixture verify command: a pushed file that still says TABS-HERE fails, as an invented formatter would.
+for file in "$@"; do
+  if grep -q "TABS-HERE" "$file"; then echo "acme lint: $file is not formatted"; exit 1; fi
+done
+echo "acme lint: $# file(s) clean"

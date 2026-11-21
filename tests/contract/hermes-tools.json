@@ -1,0 +1,271 @@
+{
+ "hermes": "0.23.0",
+ "recorded_from": "tools.registry.get_schema for every model_tools.get_all_tool_names() entry (hermes-agent 2bd378ed1b, v0.23.0)",
+ "tools": {
+  "terminal": [
+   "background",
+   "command",
+   "heartbeat",
+   "notify",
+   "persist_on_release",
+   "pty",
+   "timeout",
+   "workdir"
+  ],
+  "execute_code": [
+   "code",
+   "reset"
+  ],
+  "browser_exec": [
+   "code",
+   "session",
+   "timeout_s"
+  ],
+  "browser_cdp": [
+   "frame_id",
+   "method",
+   "params",
+   "target_id",
+   "timeout"
+  ],
+  "process_manage": [
+   "action",
+   "data",
+   "limit",
+   "offset",
+   "session_id",
+   "timeout"
+  ],
+  "web_extract": [
+   "char_limit",
+   "urls"
+  ],
+  "vision_analyze": [
+   "image_url",
+   "question",
+   "region"
+  ],
+  "video_analyze": [
+   "question",
+   "video_url"
+  ],
+  "desktop_preview": [
+   "action",
+   "count",
+   "label",
+   "start",
+   "url"
+  ],
+  "kanban_attach_url": [
+   "board",
+   "content_type",
+   "filename",
+   "task_id",
+   "url"
+  ],
+  "a2a_discover": [
+   "url"
+  ],
+  "read_file": [
+   "limit",
+   "offset",
+   "path"
+  ],
+  "write_file": [
+   "content",
+   "path"
+  ],
+  "patch": [
+   "new_string",
+   "old_string",
+   "path",
+   "replace_all"
+  ],
+  "search_files": [
+   "context",
+   "file_glob",
+   "limit",
+   "offset",
+   "order",
+   "output_mode",
+   "path",
+   "pattern",
+   "target"
+  ],
+  "skill_view": [
+   "file_path",
+   "name"
+  ],
+  "browser_vault": [
+   "action",
+   "backend",
+   "handle",
+   "label"
+  ],
+  "cronjob_manage": [
+   "action",
+   "attach_to_session",
+   "catch_up",
+   "context_from",
+   "continuity",
+   "deliver",
+   "enabled_toolsets",
+   "failure_deliver",
+   "job_id",
+   "monitor",
+   "name",
+   "no_agent",
+   "paused",
+   "paused_reason",
+   "pinned",
+   "prompt",
+   "repeat",
+   "schedule",
+   "script",
+   "skills",
+   "timezone",
+   "workdir"
+  ],
+  "delegate_task": [
+   "action",
+   "message",
+   "subagent_id",
+   "tasks"
+  ],
+  "kanban_comment": [
+   "board",
+   "body",
+   "task_id"
+  ],
+  "kanban_create": [
+   "assignee",
+   "board",
+   "body",
+   "completion_contract",
+   "goal_max_turns",
+   "goal_mode",
+   "idempotency_key",
+   "initial_status",
+   "max_runtime_seconds",
+   "model",
+   "parents",
+   "priority",
+   "project",
+   "provider",
+   "skills",
+   "tenant",
+   "title",
+   "triage",
+   "workspace_kind",
+   "workspace_path"
+  ],
+  "memory": [
+   "operations",
+   "target"
+  ]
+ },
+ "left_core_in_0_23": {
+  "names": [
+   "browser_back",
+   "browser_click",
+   "browser_console",
+   "browser_get_images",
+   "browser_navigate",
+   "browser_press",
+   "browser_scroll",
+   "browser_snapshot",
+   "browser_type",
+   "browser_vision"
+  ],
+  "now": "the camofox plugin's toolset (hermes_cli/left_core_migration.py); core's browser toolset is browser_exec + browser_vault + browser_cdp + browser_dialog",
+  "inputs_0_22": {
+   "browser_console": [
+    "clear",
+    "expression"
+   ],
+   "browser_navigate": [
+    "url"
+   ]
+  }
+ },
+ "all_names": [
+  "a2a_call",
+  "a2a_discover",
+  "a2a_history",
+  "a2a_list",
+  "a2a_orchestrate",
+  "annotate_preview",
+  "browser_cdp",
+  "browser_dialog",
+  "browser_exec",
+  "browser_vault",
+  "clarify",
+  "close_terminal",
+  "computer_use",
+  "cronjob_manage",
+  "delegate_task",
+  "desktop_preview",
+  "desktop_project",
+  "discord",
+  "discord_admin",
+  "drive_preview",
+  "execute_code",
+  "feishu_doc_read",
+  "feishu_drive_add_comment",
+  "feishu_drive_list_comment_replies",
+  "feishu_drive_list_comments",
+  "feishu_drive_reply_comment",
+  "focus_pane",
+  "gui_tour",
+  "image_generate",
+  "kanban_attach",
+  "kanban_attach_url",
+  "kanban_attachments",
+  "kanban_block",
+  "kanban_comment",
+  "kanban_complete",
+  "kanban_create",
+  "kanban_heartbeat",
+  "kanban_link",
+  "kanban_list",
+  "kanban_request_changes",
+  "kanban_request_review",
+  "kanban_schedule",
+  "kanban_show",
+  "kanban_unblock",
+  "manage_catalog",
+  "manage_connections",
+  "memory",
+  "patch",
+  "process_manage",
+  "react_to_message",
+  "read_file",
+  "read_terminal",
+  "read_window_below",
+  "search_files",
+  "session_search",
+  "set_theme",
+  "setup_beat",
+  "show_tip",
+  "skill_manage",
+  "skill_view",
+  "skills_list",
+  "terminal",
+  "text_to_speech",
+  "todo_list",
+  "video_analyze",
+  "video_generate",
+  "vision_analyze",
+  "web_extract",
+  "web_search",
+  "write_file",
+  "x_search",
+  "xai_video_edit",
+  "xai_video_extend",
+  "yb_query_group_info",
+  "yb_query_group_members",
+  "yb_search_sticker",
+  "yb_send_dm",
+  "yb_send_sticker"
+ ]
+}

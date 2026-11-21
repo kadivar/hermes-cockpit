@@ -1,0 +1,302 @@
+#!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2026 Mohammadreza Kadivar
+# SPDX-License-Identifier: AGPL-3.0-or-later
+"""The two ratchets' baselines: what the code is allowed to be today, so that it can only get better.
+
+  tests/contract/complexity.json    every function over 15 branches or 80 lines, with its numbers
+  tests/contract/type-errors.json   the type checker's errors, counted per file
+
+  scripts/baselines                  measure again and write both files
+  scripts/baselines complexity       write that one alone (also: types)
+  scripts/baselines --check          measure and compare: exit 1 when something got worse
+  scripts/baselines --check types    compare that one alone (also: complexity)
+
+Worse means: a listed function grew in branches or in lines, a function that is not listed is over a limit, a listed
+function is under both limits and still listed, a file has more type errors than its count, or a file that is not
+listed has any. A count that went down passes, and writing the files again records it: a baseline only shrinks.
+
+The complexity measure needs nothing but the standard library. The type errors need mypy (the `dev` extra); without it
+`types` says so and exits 3.
+"""
+
+import ast
+import json
+import os
+import re
+import subprocess
+import sys
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+COMPLEXITY, TYPES = "tests/contract/complexity.json", "tests/contract/type-errors.json"
+LIMITS = {"complexity": 15, "lines": 80}
+# the code that runs: the kernel, the routes, what runs inside Hermes, the hooks, the scripts and the entry points
+MEASURED = ("kernel/cockpitlib", "dashboard", "hermes_bridge", "hooks", "scripts", "bin", "__init__.py")
+TYPED = ("kernel/cockpitlib", "dashboard/cockpit", "hermes_bridge", "hooks", "scripts")
+NO_MYPY = 3
+FUNCTIONS = (ast.FunctionDef, ast.AsyncFunctionDef)
+SCOPES = (*FUNCTIONS, ast.ClassDef, ast.Lambda)
+
+
+# ---------- which files ----------
+
+
+def is_python(path: str) -> bool:
+    """A `.py` file, or a script without a suffix whose first line names python."""
+    if path.endswith(".py"):
+        return True
+    if "." in os.path.basename(path):
+        return False
+    try:
+        with open(path, "rb") as handle:
+            first = handle.readline(120)
+    except OSError:
+        return False
+    return first.startswith(b"#!") and b"python" in first
+
+
+def sources(places: tuple, root: str = ROOT) -> list:
+    """Every Python file under those places, as sorted paths from the root."""
+    found = []
+    for place in places:
+        full = os.path.join(root, place)
+        if os.path.isfile(full):
+            found.append(place)
+            continue
+        for folder, dirs, files in os.walk(full):
+            dirs[:] = sorted(name for name in dirs if name != "__pycache__" and not name.startswith("."))
+            for name in sorted(files):
+                path = os.path.join(folder, name)
+                if is_python(path):
+                    found.append(os.path.relpath(path, root).replace(os.sep, "/"))
+    return sorted(set(found))
+
+
+# ---------- complexity ----------
+
+
+def _own(node):
+    """The nodes of one function's own body: a function, class or lambda nested in it is measured as itself."""
+    stack = list(ast.iter_child_nodes(node))
+    while stack:
+        child = stack.pop()
+        yield child
+        if not isinstance(child, SCOPES):
+            stack.extend(ast.iter_child_nodes(child))
+
+
+def branches(function) -> int:
+    """1, plus one for each decision in the function's own body: `if` and `elif`, `for`, `while`, `except`, `with`,
+    each further operand of `and`/`or`, each `if` of a comprehension, and each `case` of a `match`."""
+    count = 1
+    for node in _own(function):
+        if isinstance(node, (ast.If, ast.For, ast.AsyncFor, ast.While, ast.ExceptHandler, ast.With, ast.AsyncWith)):
+            count += 1
+        elif isinstance(node, ast.BoolOp):
+            count += len(node.values) - 1
+        elif isinstance(node, ast.comprehension):
+            count += len(node.ifs)
+        elif isinstance(node, ast.match_case):
+            count += 1
+    return count
+
+
+def functions(text: str) -> dict:
+    """{qualified name: {complexity, lines}} of every function in a source, nested ones under `outer.inner`. A name a
+    scope defines twice gets `#2`, `#3` in the order of the file."""
+    found = {}
+
+    def walk(node, prefix):
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, FUNCTIONS):
+                name, number = prefix + child.name, 1
+                while name in found:
+                    number += 1
+                    name = f"{prefix}{child.name}#{number}"
+                found[name] = {"complexity": branches(child), "lines": child.end_lineno - child.lineno + 1}
+                walk(child, name + ".")
+            elif isinstance(child, ast.ClassDef):
+                walk(child, prefix + child.name + ".")
+            else:
+                walk(child, prefix)
+
+    walk(ast.parse(text), "")
+    return found
+
+
+def over(numbers: dict, limits: dict = LIMITS) -> bool:
+    return numbers["complexity"] > limits["complexity"] or numbers["lines"] > limits["lines"]
+
+
+def measure(root: str = ROOT, places: tuple = MEASURED) -> dict:
+    """{"<file>::<function>": {complexity, lines}} of every function of the measured code."""
+    found = {}
+    for path in sources(places, root):
+        with open(os.path.join(root, path), encoding="utf-8") as handle:
+            text = handle.read()
+        for name, numbers in functions(text).items():
+            found[f"{path}::{name}"] = numbers
+    return found
+
+
+def complexity_baseline(measured: dict) -> dict:
+    return {
+        "limits": dict(LIMITS),
+        "functions": {name: measured[name] for name in sorted(measured) if over(measured[name])},
+    }
+
+
+def complexity_problems(baseline: dict, measured: dict) -> list:
+    """Every way the code got worse than its baseline, and every entry the code has outgrown."""
+    limits = baseline.get("limits") or LIMITS
+    listed = baseline.get("functions") or {}
+    found = []
+    for name in sorted(measured):
+        numbers, allowed = measured[name], listed.get(name)
+        if allowed is None:
+            if over(numbers, limits):
+                found.append(
+                    f"{name} is new over a limit (complexity {numbers['complexity']} of {limits['complexity']}, "
+                    f"{numbers['lines']} lines of {limits['lines']}): make it smaller"
+                )
+            continue
+        for what in ("complexity", "lines"):
+            if numbers[what] > allowed[what]:
+                found.append(f"{name} grew: {what} {allowed[what]} -> {numbers[what]}: it may only shrink")
+        if not over(numbers, limits):
+            found.append(f"{name} is under both limits now: take it off the list (scripts/baselines complexity)")
+    for name in sorted(set(listed) - set(measured)):
+        found.append(f"{name} is listed and no longer exists: take it off the list (scripts/baselines complexity)")
+    return found
+
+
+# ---------- type errors ----------
+
+ERROR = re.compile(r"^(?P<file>[^:\n]+):\d+(?::\d+)?: error: ")
+
+
+def interpreter(root: str = ROOT) -> str:
+    """The interpreter scripts/test runs: the checkout's own venv when it has one, else this one. The tools of the
+    `dev` extra are installed there, whichever python started this script."""
+    local = os.path.join(root, ".venv", "bin", "python")
+    return local if os.access(local, os.X_OK) else sys.executable
+
+
+def has_mypy(python: str) -> bool:
+    done = subprocess.run([python, "-m", "mypy", "--version"], capture_output=True, check=False)
+    return done.returncode == 0
+
+
+def type_errors(output: str) -> dict:
+    """{file: count} from the checker's output, one line per error."""
+    found = {}
+    for line in output.splitlines():
+        match = ERROR.match(line)
+        if match:
+            name = match.group("file").replace(os.sep, "/")
+            found[name] = found.get(name, 0) + 1
+    return dict(sorted(found.items()))
+
+
+def run_mypy(root: str, python: str) -> tuple:
+    """(exit status, output) of the checker over the typed code, with the settings pyproject.toml gives it."""
+    argv = [python, "-m", "mypy", "--no-error-summary", "--no-color-output", "--hide-error-context"]
+    argv += sources(TYPED, root)
+    done = subprocess.run(argv, cwd=root, capture_output=True, text=True, check=False)
+    return done.returncode, (done.stdout or "") + (done.stderr or "")
+
+
+def type_problems(baseline: dict, counted: dict) -> list:
+    """Every file with more errors than its count, and every file with errors that has no count."""
+    found = []
+    for name in sorted(counted):
+        allowed = baseline.get(name)
+        if allowed is None:
+            found.append(f"{name} has {counted[name]} type error(s) and none are allowed there: fix them")
+        elif counted[name] > allowed:
+            found.append(f"{name} has {counted[name]} type errors, {allowed} are allowed: fix the new ones")
+    return found
+
+
+def improved(baseline: dict, counted: dict) -> list:
+    return [name for name in sorted(baseline) if counted.get(name, 0) < baseline[name]]
+
+
+# ---------- the command ----------
+
+
+def _read(root: str, name: str) -> dict:
+    with open(os.path.join(root, name), encoding="utf-8") as handle:
+        return json.load(handle)
+
+
+def _write(root: str, name: str, data: dict) -> None:
+    with open(os.path.join(root, name), "w", encoding="utf-8") as out:
+        json.dump(data, out, indent=1, sort_keys=True)
+        out.write("\n")
+
+
+def do_complexity(root: str, check: bool) -> int:
+    measured = measure(root)
+    if not check:
+        made = complexity_baseline(measured)
+        _write(root, COMPLEXITY, made)
+        print(f"{COMPLEXITY}: {len(made['functions'])} functions over a limit")
+        return 0
+    found = complexity_problems(_read(root, COMPLEXITY), measured)
+    for line in found:
+        print(line)
+    print("complexity: " + (f"{len(found)} problem(s)" if found else "no function is worse than its baseline"))
+    return 1 if found else 0
+
+
+def do_types(root: str, check: bool) -> int:
+    python = interpreter(root)
+    if not has_mypy(python):
+        print(f"types: mypy is not installed in {python} (the `dev` extra: requirements-dev.lock)")
+        return NO_MYPY
+    code, output = run_mypy(root, python)
+    counted = type_errors(output)
+    if code not in (0, 1) or (code == 1 and not counted):
+        print(output.strip()[-2000:])
+        print("types: the type checker stopped without a verdict")
+        return 1
+    if not check:
+        _write(root, TYPES, counted)
+        print(f"{TYPES}: {sum(counted.values())} errors in {len(counted)} files")
+        return 0
+    baseline = _read(root, TYPES)
+    found = type_problems(baseline, counted)
+    worse = {line.split(" ", 1)[0] for line in found}
+    for line in output.splitlines():
+        match = ERROR.match(line)
+        if match and match.group("file").replace(os.sep, "/") in worse:
+            print(line)
+    for line in found:
+        print(line)
+    better = improved(baseline, counted)
+    if better and not found:
+        print(f"types: {len(better)} file(s) have fewer errors than their count: scripts/baselines types records it")
+    total = sum(counted.values())
+    print(
+        "types: "
+        + (f"{len(found)} problem(s)" if found else f"no file is worse than its baseline ({total} errors counted)")
+    )
+    return 1 if found else 0
+
+
+def main(argv, root: str = ROOT) -> int:
+    check = "--check" in argv
+    asked = [word for word in argv if word != "--check"]
+    if any(word not in ("complexity", "types") for word in asked) or len(asked) > 1:
+        print(__doc__.strip(), file=sys.stderr)
+        return 2
+    codes = []
+    if asked != ["types"]:
+        codes.append(do_complexity(root, check))
+    if asked != ["complexity"]:
+        codes.append(do_types(root, check))
+    return max(codes)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv[1:]))

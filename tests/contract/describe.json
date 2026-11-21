@@ -1,0 +1,19 @@
+{
+  "about": "the top-level shape of `cockpit describe --json`: a key is added here before it is added there, and none is removed or retyped",
+  "keys": {
+    "api_version": "int",
+    "api_min_supported": "int",
+    "version": "str",
+    "verbs": "dict",
+    "intent_types": "list",
+    "kickoff_modes": "dict",
+    "card_kinds": "dict",
+    "marks": "dict",
+    "roles": "list",
+    "seat_kinds": "list"
+  },
+  "verb": ["example", "flags", "self_parsed", "zero_args"],
+  "kickoff_mode": ["capacity_bucket", "label", "lane_kind", "preflight", "text", "title_kind"],
+  "card_kind": ["flow", "role", "title"],
+  "marks": ["no_failure_video", "privileged_login", "review", "two_factor"]
+}

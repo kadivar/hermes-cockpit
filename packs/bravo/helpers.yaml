@@ -1,0 +1,38 @@
+# SPDX-FileCopyrightText: 2026 Mohammadreza Kadivar
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# Fixture helpers: invented services for the bravo fleet.
+groups:
+  services:
+    label: North services
+    status: {argv: ["{pack}/bin/svc", report], parse: json}
+helpers:
+  cache:
+    label: Edge cache
+    group: services
+    argv: ["{pack}/bin/svc", "{helper}", "{verb}"]
+    verbs: [up, down]
+  api:
+    label: Fleet api :7200
+    group: services
+    argv: ["{pack}/bin/svc", "{helper}", "{verb}"]
+    verbs: [up, down]
+    depends_on: [cache]
+  tunnel:
+    label: North tunnel
+    group: services
+    argv: ["{pack}/bin/svc", "{helper}", "{verb}"]
+    verbs: [up, down]
+    depends_on: [api]
+    self: true
+  fleet:
+    label: Whole fleet
+    group: services
+    composite: [tunnel, cache]
+    verbs: [up, down]
+  profile:
+    label: Sampling profile
+    argv: ["{pack}/bin/svc", profile, "{verb}", "{choice}"]
+    verbs: [switch]
+    options: {argv: ["{pack}/bin/svc", profiles], parse: json}
+    who: lane

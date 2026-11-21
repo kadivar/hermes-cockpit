@@ -1,0 +1,25 @@
+{
+ "security": [
+  "egress.allowed-read-denied",
+  "egress.forge-write-blocked",
+  "egress.hook-allowlisted",
+  "egress.host-probe-allowed",
+  "egress.pattern-invalid",
+  "egress.production-host-blocked",
+  "egress.production-hosts-empty",
+  "egress.push-blocked",
+  "env-file.in-git",
+  "env-file.missing",
+  "env-file.readable",
+  "fence.editor-hook",
+  "hermes.auto-decompose",
+  "hermes.newer-unprobed",
+  "hermes.review-dispatch",
+  "seat.drift",
+  "seat.env-browser-home",
+  "seat.env-lane",
+  "seat.plugin",
+  "vault.key-unsealed",
+  "vault.locked"
+ ]
+}

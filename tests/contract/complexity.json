@@ -1,0 +1,956 @@
+{
+ "functions": {
+  "dashboard/cockpit/router.py::_rows": {
+   "complexity": 21,
+   "lines": 83
+  },
+  "dashboard/cockpit/router.py::_with_chain": {
+   "complexity": 19,
+   "lines": 27
+  },
+  "dashboard/cockpit/router.py::_with_new_comments": {
+   "complexity": 22,
+   "lines": 42
+  },
+  "dashboard/cockpit/router.py::kickoff": {
+   "complexity": 18,
+   "lines": 33
+  },
+  "dashboard/cockpit/routes/pages.py::_card_detail": {
+   "complexity": 26,
+   "lines": 97
+  },
+  "dashboard/cockpit/routes/pages.py::_ticket_row": {
+   "complexity": 16,
+   "lines": 44
+  },
+  "dashboard/cockpit/routes/pages.py::mount": {
+   "complexity": 1,
+   "lines": 1702
+  },
+  "dashboard/cockpit/routes/pages.py::mount.demo": {
+   "complexity": 34,
+   "lines": 85
+  },
+  "dashboard/cockpit/routes/pages.py::mount.session_card": {
+   "complexity": 17,
+   "lines": 39
+  },
+  "dashboard/cockpit/routes/pages.py::mount.staging_credentials.go": {
+   "complexity": 24,
+   "lines": 46
+  },
+  "dashboard/cockpit/routes/vault.py::mount": {
+   "complexity": 1,
+   "lines": 99
+  },
+  "kernel/cockpitlib/accounts.py::manifest": {
+   "complexity": 17,
+   "lines": 37
+  },
+  "kernel/cockpitlib/activity.py::_board_rows": {
+   "complexity": 22,
+   "lines": 58
+  },
+  "kernel/cockpitlib/activity.py::_intent_rows": {
+   "complexity": 23,
+   "lines": 41
+  },
+  "kernel/cockpitlib/acts.py::_status": {
+   "complexity": 16,
+   "lines": 40
+  },
+  "kernel/cockpitlib/acts.py::answer_card": {
+   "complexity": 72,
+   "lines": 193
+  },
+  "kernel/cockpitlib/acts.py::attach_evidence": {
+   "complexity": 21,
+   "lines": 50
+  },
+  "kernel/cockpitlib/acts.py::continue_ticket": {
+   "complexity": 21,
+   "lines": 102
+  },
+  "kernel/cockpitlib/acts.py::derive_grooming": {
+   "complexity": 24,
+   "lines": 37
+  },
+  "kernel/cockpitlib/acts.py::describe_ticket": {
+   "complexity": 19,
+   "lines": 63
+  },
+  "kernel/cockpitlib/acts.py::finish_open_runs": {
+   "complexity": 16,
+   "lines": 47
+  },
+  "kernel/cockpitlib/acts.py::graduate_bumps": {
+   "complexity": 16,
+   "lines": 28
+  },
+  "kernel/cockpitlib/acts.py::open_analyst": {
+   "complexity": 19,
+   "lines": 41
+  },
+  "kernel/cockpitlib/acts.py::scan_base": {
+   "complexity": 32,
+   "lines": 89
+  },
+  "kernel/cockpitlib/acts.py::scan_bumps": {
+   "complexity": 24,
+   "lines": 44
+  },
+  "kernel/cockpitlib/acts.py::started_bumps": {
+   "complexity": 18,
+   "lines": 30
+  },
+  "kernel/cockpitlib/acts.py::take_bumps": {
+   "complexity": 16,
+   "lines": 25
+  },
+  "kernel/cockpitlib/acts.py::treat_pr": {
+   "complexity": 34,
+   "lines": 140
+  },
+  "kernel/cockpitlib/advise.py::_run": {
+   "complexity": 23,
+   "lines": 38
+  },
+  "kernel/cockpitlib/advise.py::advise": {
+   "complexity": 22,
+   "lines": 82
+  },
+  "kernel/cockpitlib/advisories/card.py::text": {
+   "complexity": 19,
+   "lines": 46
+  },
+  "kernel/cockpitlib/advisories/scan.py::run": {
+   "complexity": 23,
+   "lines": 55
+  },
+  "kernel/cockpitlib/advisories/sources.py::osv_item": {
+   "complexity": 32,
+   "lines": 54
+  },
+  "kernel/cockpitlib/answers.py::_done_cards": {
+   "complexity": 16,
+   "lines": 46
+  },
+  "kernel/cockpitlib/answers.py::references": {
+   "complexity": 17,
+   "lines": 50
+  },
+  "kernel/cockpitlib/asks.py::approve": {
+   "complexity": 19,
+   "lines": 53
+  },
+  "kernel/cockpitlib/board_view.py::attachments": {
+   "complexity": 30,
+   "lines": 75
+  },
+  "kernel/cockpitlib/board_view.py::board": {
+   "complexity": 35,
+   "lines": 103
+  },
+  "kernel/cockpitlib/board_view.py::waiting_cards": {
+   "complexity": 16,
+   "lines": 64
+  },
+  "kernel/cockpitlib/browser_card.py::facts": {
+   "complexity": 24,
+   "lines": 31
+  },
+  "kernel/cockpitlib/chat.py::_message_entries": {
+   "complexity": 21,
+   "lines": 56
+  },
+  "kernel/cockpitlib/chat.py::coding_tail": {
+   "complexity": 28,
+   "lines": 60
+  },
+  "kernel/cockpitlib/ci_watch.py::_card": {
+   "complexity": 26,
+   "lines": 56
+  },
+  "kernel/cockpitlib/ci_watch.py::commits": {
+   "complexity": 19,
+   "lines": 37
+  },
+  "kernel/cockpitlib/ci_watch.py::watch": {
+   "complexity": 46,
+   "lines": 118
+  },
+  "kernel/cockpitlib/cleanup.py::keep_reason": {
+   "complexity": 18,
+   "lines": 34
+  },
+  "kernel/cockpitlib/cli.py::cmd_advisories": {
+   "complexity": 16,
+   "lines": 41
+  },
+  "kernel/cockpitlib/cli.py::cmd_helper": {
+   "complexity": 24,
+   "lines": 57
+  },
+  "kernel/cockpitlib/cli.py::cmd_init": {
+   "complexity": 32,
+   "lines": 129
+  },
+  "kernel/cockpitlib/cli.py::cmd_outbox": {
+   "complexity": 57,
+   "lines": 273
+  },
+  "kernel/cockpitlib/cli.py::cmd_pack": {
+   "complexity": 25,
+   "lines": 67
+  },
+  "kernel/cockpitlib/cli.py::cmd_publish": {
+   "complexity": 20,
+   "lines": 68
+  },
+  "kernel/cockpitlib/cli.py::cmd_record": {
+   "complexity": 19,
+   "lines": 52
+  },
+  "kernel/cockpitlib/cli.py::cmd_resume": {
+   "complexity": 17,
+   "lines": 71
+  },
+  "kernel/cockpitlib/cli.py::cmd_slot": {
+   "complexity": 23,
+   "lines": 96
+  },
+  "kernel/cockpitlib/cli.py::cmd_ticket": {
+   "complexity": 17,
+   "lines": 63
+  },
+  "kernel/cockpitlib/cli.py::cmd_update": {
+   "complexity": 30,
+   "lines": 74
+  },
+  "kernel/cockpitlib/cli.py::cmd_vault": {
+   "complexity": 52,
+   "lines": 173
+  },
+  "kernel/cockpitlib/connector.py::runtime": {
+   "complexity": 17,
+   "lines": 20
+  },
+  "kernel/cockpitlib/decompose.py::check": {
+   "complexity": 19,
+   "lines": 39
+  },
+  "kernel/cockpitlib/demo.py::Demo.play": {
+   "complexity": 14,
+   "lines": 115
+  },
+  "kernel/cockpitlib/diffs.py::intent_diff": {
+   "complexity": 48,
+   "lines": 182
+  },
+  "kernel/cockpitlib/doctor.py::_collect": {
+   "complexity": 80,
+   "lines": 207
+  },
+  "kernel/cockpitlib/doctor.py::pack_read_problems": {
+   "complexity": 20,
+   "lines": 26
+  },
+  "kernel/cockpitlib/doctor.py::provider_problems": {
+   "complexity": 16,
+   "lines": 45
+  },
+  "kernel/cockpitlib/egress.py::_card_says_lent": {
+   "complexity": 18,
+   "lines": 36
+  },
+  "kernel/cockpitlib/egress.py::_check_tool": {
+   "complexity": 41,
+   "lines": 62
+  },
+  "kernel/cockpitlib/egress.py::_config_write": {
+   "complexity": 16,
+   "lines": 24
+  },
+  "kernel/cockpitlib/egress.py::_editor_target": {
+   "complexity": 17,
+   "lines": 28
+  },
+  "kernel/cockpitlib/egress.py::_http_write": {
+   "complexity": 16,
+   "lines": 28
+  },
+  "kernel/cockpitlib/egress.py::_shared_browser": {
+   "complexity": 19,
+   "lines": 49
+  },
+  "kernel/cockpitlib/egress.py::_staging_write": {
+   "complexity": 21,
+   "lines": 32
+  },
+  "kernel/cockpitlib/egress.py::_wide_search": {
+   "complexity": 21,
+   "lines": 28
+  },
+  "kernel/cockpitlib/egress.py::_write_targets": {
+   "complexity": 41,
+   "lines": 83
+  },
+  "kernel/cockpitlib/egress.py::check": {
+   "complexity": 20,
+   "lines": 25
+  },
+  "kernel/cockpitlib/egress.py::check_bound": {
+   "complexity": 18,
+   "lines": 35
+  },
+  "kernel/cockpitlib/egress.py::http_writes": {
+   "complexity": 21,
+   "lines": 38
+  },
+  "kernel/cockpitlib/forges/github.py::GitHubForge.comments": {
+   "complexity": 27,
+   "lines": 43
+  },
+  "kernel/cockpitlib/gate.py::_return_rows": {
+   "complexity": 21,
+   "lines": 75
+  },
+  "kernel/cockpitlib/gate.py::auto_publish": {
+   "complexity": 23,
+   "lines": 54
+  },
+  "kernel/cockpitlib/gate.py::base_gone": {
+   "complexity": 32,
+   "lines": 65
+  },
+  "kernel/cockpitlib/gate.py::closeout_returned": {
+   "complexity": 29,
+   "lines": 85
+  },
+  "kernel/cockpitlib/gate.py::publish_wait": {
+   "complexity": 17,
+   "lines": 33
+  },
+  "kernel/cockpitlib/gate.py::reconcile": {
+   "complexity": 23,
+   "lines": 42
+  },
+  "kernel/cockpitlib/gate.py::resweep_held": {
+   "complexity": 16,
+   "lines": 59
+  },
+  "kernel/cockpitlib/gate.py::return_intent": {
+   "complexity": 18,
+   "lines": 79
+  },
+  "kernel/cockpitlib/git_push.py::probe": {
+   "complexity": 17,
+   "lines": 36
+  },
+  "kernel/cockpitlib/git_push.py::push": {
+   "complexity": 23,
+   "lines": 64
+  },
+  "kernel/cockpitlib/helpers.py::_helper": {
+   "complexity": 25,
+   "lines": 46
+  },
+  "kernel/cockpitlib/helpers.py::_parse_status": {
+   "complexity": 16,
+   "lines": 31
+  },
+  "kernel/cockpitlib/helpers.py::check": {
+   "complexity": 20,
+   "lines": 36
+  },
+  "kernel/cockpitlib/helpers.py::run": {
+   "complexity": 20,
+   "lines": 105
+  },
+  "kernel/cockpitlib/helpers.py::status": {
+   "complexity": 17,
+   "lines": 51
+  },
+  "kernel/cockpitlib/housekeeping.py::_answer_other_session": {
+   "complexity": 18,
+   "lines": 55
+  },
+  "kernel/cockpitlib/housekeeping.py::reclaim_dead": {
+   "complexity": 16,
+   "lines": 48
+  },
+  "kernel/cockpitlib/housekeeping.py::stamp_from_transcript": {
+   "complexity": 16,
+   "lines": 28
+  },
+  "kernel/cockpitlib/housekeeping.py::unguard": {
+   "complexity": 19,
+   "lines": 66
+  },
+  "kernel/cockpitlib/housekeeping.py::unstrand": {
+   "complexity": 22,
+   "lines": 56
+  },
+  "kernel/cockpitlib/housekeeping.py::warm_waiting": {
+   "complexity": 17,
+   "lines": 38
+  },
+  "kernel/cockpitlib/inbox.py::queue_act": {
+   "complexity": 16,
+   "lines": 39
+  },
+  "kernel/cockpitlib/infra_note.py::apply": {
+   "complexity": 24,
+   "lines": 85
+  },
+  "kernel/cockpitlib/intent_view.py::brief_fields": {
+   "complexity": 73,
+   "lines": 136
+  },
+  "kernel/cockpitlib/intent_view.py::enrich": {
+   "complexity": 17,
+   "lines": 41
+  },
+  "kernel/cockpitlib/intent_view.py::push_shape": {
+   "complexity": 16,
+   "lines": 30
+  },
+  "kernel/cockpitlib/intents.py::check_payload": {
+   "complexity": 18,
+   "lines": 41
+  },
+  "kernel/cockpitlib/kanban.py::ask_and_report": {
+   "complexity": 16,
+   "lines": 35
+  },
+  "kernel/cockpitlib/kanban.py::block_reason": {
+   "complexity": 16,
+   "lines": 43
+  },
+  "kernel/cockpitlib/kanban.py::open_card_rows": {
+   "complexity": 22,
+   "lines": 90
+  },
+  "kernel/cockpitlib/kanban.py::place_card": {
+   "complexity": 16,
+   "lines": 57
+  },
+  "kernel/cockpitlib/kickoff.py::_slot_worked": {
+   "complexity": 18,
+   "lines": 28
+  },
+  "kernel/cockpitlib/kickoff.py::start": {
+   "complexity": 73,
+   "lines": 230
+  },
+  "kernel/cockpitlib/lane_feed.py::job_stream": {
+   "complexity": 19,
+   "lines": 52
+  },
+  "kernel/cockpitlib/lane_vault.py::audit": {
+   "complexity": 24,
+   "lines": 55
+  },
+  "kernel/cockpitlib/lend.py::_labelled_login": {
+   "complexity": 16,
+   "lines": 21
+  },
+  "kernel/cockpitlib/lend.py::approve": {
+   "complexity": 17,
+   "lines": 69
+  },
+  "kernel/cockpitlib/lend.py::take_back": {
+   "complexity": 22,
+   "lines": 41
+  },
+  "kernel/cockpitlib/live_cli.py::Feed.poll": {
+   "complexity": 17,
+   "lines": 32
+  },
+  "kernel/cockpitlib/live_cli.py::format_entry": {
+   "complexity": 16,
+   "lines": 30
+  },
+  "kernel/cockpitlib/live_cli.py::run_live": {
+   "complexity": 16,
+   "lines": 56
+  },
+  "kernel/cockpitlib/map_build.py::compile_document": {
+   "complexity": 48,
+   "lines": 82
+  },
+  "kernel/cockpitlib/migrate.py::discover": {
+   "complexity": 16,
+   "lines": 43
+  },
+  "kernel/cockpitlib/ops.py::morning_digest": {
+   "complexity": 16,
+   "lines": 32
+  },
+  "kernel/cockpitlib/outbox.py::_prepare": {
+   "complexity": 27,
+   "lines": 55
+  },
+  "kernel/cockpitlib/outbox.py::_rules": {
+   "complexity": 75,
+   "lines": 106
+  },
+  "kernel/cockpitlib/outbox.py::_supersede_reviews": {
+   "complexity": 16,
+   "lines": 27
+  },
+  "kernel/cockpitlib/outbox.py::hold": {
+   "complexity": 25,
+   "lines": 66
+  },
+  "kernel/cockpitlib/outbox.py::implied_after": {
+   "complexity": 35,
+   "lines": 45
+  },
+  "kernel/cockpitlib/outbox.py::verify": {
+   "complexity": 24,
+   "lines": 33
+  },
+  "kernel/cockpitlib/pack.py::_advisor": {
+   "complexity": 33,
+   "lines": 51
+  },
+  "kernel/cockpitlib/pack.py::_advisories": {
+   "complexity": 21,
+   "lines": 34
+  },
+  "kernel/cockpitlib/pack.py::_bump_sequence": {
+   "complexity": 25,
+   "lines": 52
+  },
+  "kernel/cockpitlib/pack.py::_cards": {
+   "complexity": 30,
+   "lines": 77
+  },
+  "kernel/cockpitlib/pack.py::_desktop": {
+   "complexity": 33,
+   "lines": 48
+  },
+  "kernel/cockpitlib/pack.py::_egress": {
+   "complexity": 41,
+   "lines": 60
+  },
+  "kernel/cockpitlib/pack.py::_environments": {
+   "complexity": 19,
+   "lines": 34
+  },
+  "kernel/cockpitlib/pack.py::_extra_plugins": {
+   "complexity": 18,
+   "lines": 34
+  },
+  "kernel/cockpitlib/pack.py::_forge": {
+   "complexity": 39,
+   "lines": 63
+  },
+  "kernel/cockpitlib/pack.py::_mcp_servers": {
+   "complexity": 25,
+   "lines": 35
+  },
+  "kernel/cockpitlib/pack.py::_outbox_policy": {
+   "complexity": 25,
+   "lines": 69
+  },
+  "kernel/cockpitlib/pack.py::_providers": {
+   "complexity": 39,
+   "lines": 54
+  },
+  "kernel/cockpitlib/pack.py::_repo_setup": {
+   "complexity": 33,
+   "lines": 47
+  },
+  "kernel/cockpitlib/pack.py::_seat_config": {
+   "complexity": 20,
+   "lines": 32
+  },
+  "kernel/cockpitlib/pack.py::_session_card": {
+   "complexity": 16,
+   "lines": 29
+  },
+  "kernel/cockpitlib/pack.py::_skill_names": {
+   "complexity": 19,
+   "lines": 37
+  },
+  "kernel/cockpitlib/pack.py::_skills": {
+   "complexity": 18,
+   "lines": 36
+  },
+  "kernel/cockpitlib/pack.py::_slots": {
+   "complexity": 46,
+   "lines": 84
+  },
+  "kernel/cockpitlib/pack.py::_standup": {
+   "complexity": 20,
+   "lines": 31
+  },
+  "kernel/cockpitlib/pack.py::_testflow": {
+   "complexity": 25,
+   "lines": 47
+  },
+  "kernel/cockpitlib/pack.py::_tracker": {
+   "complexity": 71,
+   "lines": 115
+  },
+  "kernel/cockpitlib/pack.py::_watchers": {
+   "complexity": 21,
+   "lines": 27
+  },
+  "kernel/cockpitlib/pack.py::agent_launch": {
+   "complexity": 22,
+   "lines": 31
+  },
+  "kernel/cockpitlib/pack.py::policy": {
+   "complexity": 34,
+   "lines": 43
+  },
+  "kernel/cockpitlib/pack_effective.py::_Dump.walk": {
+   "complexity": 18,
+   "lines": 40
+  },
+  "kernel/cockpitlib/pack_migration.py::_convert_intents": {
+   "complexity": 21,
+   "lines": 74
+  },
+  "kernel/cockpitlib/pack_migration.py::apply": {
+   "complexity": 34,
+   "lines": 101
+  },
+  "kernel/cockpitlib/pack_migration.py::load_spec": {
+   "complexity": 70,
+   "lines": 89
+  },
+  "kernel/cockpitlib/pack_migration.py::rollback": {
+   "complexity": 17,
+   "lines": 55
+  },
+  "kernel/cockpitlib/pack_migration.py::scan": {
+   "complexity": 36,
+   "lines": 47
+  },
+  "kernel/cockpitlib/pack_migration.py::verify": {
+   "complexity": 21,
+   "lines": 58
+  },
+  "kernel/cockpitlib/plugin_api.py::_resolve_repos": {
+   "complexity": 18,
+   "lines": 26
+  },
+  "kernel/cockpitlib/pr_watch.py::_rereview": {
+   "complexity": 34,
+   "lines": 73
+  },
+  "kernel/cockpitlib/pr_watch.py::_skip": {
+   "complexity": 30,
+   "lines": 41
+  },
+  "kernel/cockpitlib/pr_watch.py::card_prs": {
+   "complexity": 19,
+   "lines": 30
+  },
+  "kernel/cockpitlib/pr_watch.py::discover": {
+   "complexity": 24,
+   "lines": 55
+  },
+  "kernel/cockpitlib/pr_watch.py::read": {
+   "complexity": 49,
+   "lines": 96
+  },
+  "kernel/cockpitlib/pr_watch.py::watch": {
+   "complexity": 24,
+   "lines": 99
+  },
+  "kernel/cockpitlib/pr_watch.py::watched": {
+   "complexity": 25,
+   "lines": 42
+  },
+  "kernel/cockpitlib/publish.py::_pr_edit": {
+   "complexity": 23,
+   "lines": 54
+  },
+  "kernel/cockpitlib/publish.py::_pr_review_submit": {
+   "complexity": 32,
+   "lines": 77
+  },
+  "kernel/cockpitlib/publish.py::_refuse": {
+   "complexity": 19,
+   "lines": 51
+  },
+  "kernel/cockpitlib/publish.py::_review_labels": {
+   "complexity": 23,
+   "lines": 33
+  },
+  "kernel/cockpitlib/publish.py::_thread": {
+   "complexity": 39,
+   "lines": 64
+  },
+  "kernel/cockpitlib/publish.py::_verify_pr": {
+   "complexity": 21,
+   "lines": 25
+  },
+  "kernel/cockpitlib/publish.py::backfill_related": {
+   "complexity": 17,
+   "lines": 36
+  },
+  "kernel/cockpitlib/publish.py::execute": {
+   "complexity": 29,
+   "lines": 79
+  },
+  "kernel/cockpitlib/publish.py::submit_review": {
+   "complexity": 19,
+   "lines": 57
+  },
+  "kernel/cockpitlib/qa_view.py::parse_results": {
+   "complexity": 30,
+   "lines": 100
+  },
+  "kernel/cockpitlib/quota.py::_walls": {
+   "complexity": 40,
+   "lines": 63
+  },
+  "kernel/cockpitlib/quota.py::step": {
+   "complexity": 50,
+   "lines": 100
+  },
+  "kernel/cockpitlib/record.py::page_target": {
+   "complexity": 16,
+   "lines": 24
+  },
+  "kernel/cockpitlib/record.py::start": {
+   "complexity": 18,
+   "lines": 86
+  },
+  "kernel/cockpitlib/refusals.py::unresolved": {
+   "complexity": 18,
+   "lines": 36
+  },
+  "kernel/cockpitlib/registry.py::check_kickoff": {
+   "complexity": 17,
+   "lines": 28
+  },
+  "kernel/cockpitlib/rehome.py::rehome": {
+   "complexity": 25,
+   "lines": 150
+  },
+  "kernel/cockpitlib/rehome.py::undo": {
+   "complexity": 18,
+   "lines": 82
+  },
+  "kernel/cockpitlib/render.py::adf": {
+   "complexity": 22,
+   "lines": 36
+  },
+  "kernel/cockpitlib/render.py::markdown": {
+   "complexity": 22,
+   "lines": 81
+  },
+  "kernel/cockpitlib/repo_gates.py::_outside": {
+   "complexity": 16,
+   "lines": 31
+  },
+  "kernel/cockpitlib/repo_gates.py::run_gates": {
+   "complexity": 18,
+   "lines": 45
+  },
+  "kernel/cockpitlib/resume.py::events_from_transcript": {
+   "complexity": 17,
+   "lines": 35
+  },
+  "kernel/cockpitlib/scaffold.py::detect": {
+   "complexity": 23,
+   "lines": 90
+  },
+  "kernel/cockpitlib/scaffold.py::files_for": {
+   "complexity": 24,
+   "lines": 125
+  },
+  "kernel/cockpitlib/scaffold.py::plan": {
+   "complexity": 22,
+   "lines": 48
+  },
+  "kernel/cockpitlib/scaffold.py::write": {
+   "complexity": 17,
+   "lines": 59
+  },
+  "kernel/cockpitlib/scrub.py::_gpg_source": {
+   "complexity": 22,
+   "lines": 39
+  },
+  "kernel/cockpitlib/self_update.py::apply": {
+   "complexity": 22,
+   "lines": 62
+  },
+  "kernel/cockpitlib/sequence.py::_own_push": {
+   "complexity": 17,
+   "lines": 23
+  },
+  "kernel/cockpitlib/setup.py::_ensure_plugin": {
+   "complexity": 19,
+   "lines": 45
+  },
+  "kernel/cockpitlib/setup.py::_merge_kanban": {
+   "complexity": 21,
+   "lines": 41
+  },
+  "kernel/cockpitlib/setup.py::cron_schedule": {
+   "complexity": 20,
+   "lines": 28
+  },
+  "kernel/cockpitlib/skill_log.py::missing": {
+   "complexity": 19,
+   "lines": 32
+  },
+  "kernel/cockpitlib/slots.py::apply_capacity": {
+   "complexity": 17,
+   "lines": 32
+  },
+  "kernel/cockpitlib/slots.py::data_ready": {
+   "complexity": 25,
+   "lines": 39
+  },
+  "kernel/cockpitlib/standup_note.py::collect": {
+   "complexity": 41,
+   "lines": 103
+  },
+  "kernel/cockpitlib/standup_note.py::sections": {
+   "complexity": 25,
+   "lines": 78
+  },
+  "kernel/cockpitlib/standup_note.py::waiting": {
+   "complexity": 23,
+   "lines": 44
+  },
+  "kernel/cockpitlib/state_commit.py::state_commit": {
+   "complexity": 17,
+   "lines": 53
+  },
+  "kernel/cockpitlib/test_flow.py::failed_media": {
+   "complexity": 17,
+   "lines": 41
+  },
+  "kernel/cockpitlib/test_flow.py::post_problems": {
+   "complexity": 24,
+   "lines": 45
+  },
+  "kernel/cockpitlib/tracker_watch.py::watch": {
+   "complexity": 16,
+   "lines": 69
+  },
+  "kernel/cockpitlib/trackers/github_issues.py::GitHubIssuesTracker.__init__": {
+   "complexity": 17,
+   "lines": 32
+  },
+  "kernel/cockpitlib/trackers/github_issues.py::GitHubIssuesTracker.comment": {
+   "complexity": 19,
+   "lines": 33
+  },
+  "kernel/cockpitlib/trackers/jira.py::ConnectorTracker._request": {
+   "complexity": 43,
+   "lines": 60
+  },
+  "kernel/cockpitlib/trackers/jira.py::JiraTracker.comment": {
+   "complexity": 21,
+   "lines": 51
+  },
+  "kernel/cockpitlib/trackers/jira.py::JiraTracker.create": {
+   "complexity": 27,
+   "lines": 56
+  },
+  "kernel/cockpitlib/trackers/local.py::LocalTracker.comment": {
+   "complexity": 18,
+   "lines": 51
+  },
+  "kernel/cockpitlib/trackers/local.py::LocalTracker.create": {
+   "complexity": 16,
+   "lines": 43
+  },
+  "kernel/cockpitlib/usage.py::_provider_rows": {
+   "complexity": 20,
+   "lines": 40
+  },
+  "kernel/cockpitlib/usage.py::plan_windows": {
+   "complexity": 27,
+   "lines": 84
+  },
+  "kernel/cockpitlib/usage.py::seat_rows": {
+   "complexity": 16,
+   "lines": 28
+  },
+  "kernel/cockpitlib/usage.py::transcript_rows": {
+   "complexity": 25,
+   "lines": 102
+  },
+  "kernel/cockpitlib/vault.py::backup_vault": {
+   "complexity": 16,
+   "lines": 38
+  },
+  "kernel/cockpitlib/vault.py::import_logins": {
+   "complexity": 16,
+   "lines": 39
+  },
+  "kernel/cockpitlib/vault.py::login_metadata": {
+   "complexity": 20,
+   "lines": 51
+  },
+  "kernel/cockpitlib/vault.py::store_login": {
+   "complexity": 18,
+   "lines": 68
+  },
+  "kernel/cockpitlib/vault_book.py::Record.from_entry": {
+   "complexity": 18,
+   "lines": 22
+  },
+  "kernel/cockpitlib/vault_book.py::VaultBook.save": {
+   "complexity": 36,
+   "lines": 67
+  },
+  "scripts/check::main": {
+   "complexity": 16,
+   "lines": 45
+  },
+  "scripts/gen::_DoctorScan.from_function": {
+   "complexity": 17,
+   "lines": 33
+  },
+  "scripts/gen::notify_events": {
+   "complexity": 17,
+   "lines": 40
+  },
+  "scripts/headers::with_header": {
+   "complexity": 16,
+   "lines": 25
+  },
+  "scripts/replay_support/driver.py::views": {
+   "complexity": 36,
+   "lines": 157
+  },
+  "scripts/replay_support/standin_gh.py::api": {
+   "complexity": 18,
+   "lines": 42
+  },
+  "scripts/replay_support/tool.py::compare": {
+   "complexity": 26,
+   "lines": 56
+  },
+  "scripts/replay_support/tool.py::copy_tree": {
+   "complexity": 16,
+   "lines": 43
+  },
+  "scripts/replay_support/tool.py::forge_reads": {
+   "complexity": 16,
+   "lines": 30
+  },
+  "scripts/replay_support/tool.py::snapshot": {
+   "complexity": 12,
+   "lines": 81
+  }
+ },
+ "limits": {
+  "complexity": 15,
+  "lines": 80
+ }
+}

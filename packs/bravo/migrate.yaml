@@ -1,0 +1,26 @@
+# SPDX-FileCopyrightText: 2026 Mohammadreza Kadivar
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# A fictional earlier pipeline ("tide") this fixture moves off. Every name here is invented.
+legacy:
+  profiles: {replace: [reviewer], remove: [tide-bot, tide-helper]}
+  plugins: {disable: [tide-panel], keep: [trace-tap]}
+  crons: {retire: [tide-sync, tide-gc], replace: [standup]}
+  shell_hooks:
+    - {event: pre_llm_call, command: /srv/tide/context.sh}
+  root:
+    soul_blocks: [{start: "## TIDE START", end: "## TIDE END"}]
+    env_drop: [TIDE_KEY, TIDE_HOST]
+    config_drop: [tide]
+  editor_hooks: [.tide/editor-guard.json]
+records:
+  map:
+    - {from: tide/outbox, to: records/outbox, kind: intents}
+    - {from: tide/notes.md, to: records/platform/tide-notes.md, kind: file}
+board:
+  flows: [{pattern: ": tide ", flow: card}]
+  rewrite: [{pattern: "tide-publish (\\S+)", replace: "cockpit publish --id \\1"}]
+slots:
+  bindings: [{from: "tide/lanes/{n}.owner", to: owner, format: "lane:{value}"}]
+exporters:
+  vault: {argv: [bin/tide-dump, all], count_argv: [bin/tide-dump, count]}

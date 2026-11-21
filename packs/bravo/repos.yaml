@@ -1,0 +1,23 @@
+# SPDX-FileCopyrightText: 2026 Mohammadreza Kadivar
+# SPDX-License-Identifier: AGPL-3.0-or-later
+repos:
+- name: ledger
+  path: repos/ledger
+  skills:
+  - open-prs
+  copy: [config]
+  hooks_path: tools/hooks
+  worktree_files: [{source: files/ledger.ini, target: conf/local.ini}]
+  after_add: [[sh, -c, "touch .north-ready"]]
+  branch_suffix_when_held: .alt
+  failures: ["^not ok \\d+ - (.+)$"]
+  base: main
+  gates:
+  - 'printf north-gate'
+  verify: [["{pack}/bin/fmt-check", "{base}", "{sha}"]]
+- name: site
+  path: repos/site
+  base: main
+  gates:
+  - 'printf north-gate'
+  copy: []

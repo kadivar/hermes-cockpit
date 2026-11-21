@@ -1,0 +1,12 @@
+#!/bin/sh
+# SPDX-FileCopyrightText: 2026 Mohammadreza Kadivar
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# Fixture exporter for the invented "relay" pipeline: logins as neutral JSON lines from $COCKPIT_ROOT/relay-logins.jsonl.
+file="$COCKPIT_ROOT/relay-logins.jsonl"
+case "$1" in
+  --count) [ -f "$file" ] && grep -c . "$file" || echo 0 ;;
+  --archive) [ -n "$RELAY_ARCHIVE_FAIL" ] && exit 3; echo archived > "$COCKPIT_ROOT/relay-archived" ;;
+  *) if [ -f "$file" ]; then cat "$file"; fi ;;
+esac
+exit 0

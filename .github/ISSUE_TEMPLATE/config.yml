@@ -1,0 +1,13 @@
+# SPDX-FileCopyrightText: 2026 Mohammadreza Kadivar
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# Issues are switched off in the repository's settings. This file is the fallback for the day they are on by mistake:
+# no blank issue can be opened, and the one link sends the reader to how a report is filed here (a pull request).
+blank_issues_enabled: false
+contact_links:
+  - name: Report a bug, propose a change or ask a question
+    url: https://github.com/kadivar/hermes-cockpit/blob/HEAD/CONTRIBUTING.md
+    about: This project takes no issues. Every report is a pull request; CONTRIBUTING.md says how, in a few lines.
+  - name: Report a security problem
+    url: https://github.com/kadivar/hermes-cockpit/security/advisories/new
+    about: Privately, never as a pull request. SECURITY.md has the details.

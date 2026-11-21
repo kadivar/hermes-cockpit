@@ -1,0 +1,163 @@
+#!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2026 Mohammadreza Kadivar
+# SPDX-License-Identifier: AGPL-3.0-or-later
+"""The copyright and licence header of every source file, by file type. `--check` names the files that lack it and
+exits 1; `--write` adds it where it is missing and changes nothing else. Running it twice writes nothing the second time.
+
+  scripts/headers --check [path ...]
+  scripts/headers --write [path ...]
+
+A file is headed when its type can carry a comment that nothing reads: Python, shell, an executable with a shebang,
+YAML, TOML, JavaScript and CSS. Every other tracked file (Markdown, JSON, line-oriented data, lock files, what a
+generator or a build writes, the starter that `cockpit init` copies into a user's own pack) carries no header and is
+covered by `REUSE.toml` instead; `tests/test_every_file_states_its_copyright_and_licence.py` holds the two together.
+
+Standard library only, and no syntax newer than Python 3.9.
+"""
+
+import os
+import re
+import subprocess
+import sys
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+HOLDER = "2026 Mohammadreza Kadivar"
+LICENCE = "AGPL-3.0-or-later"
+LINES = (f"SPDX-FileCopyrightText: {HOLDER}", f"SPDX-License-Identifier: {LICENCE}")
+
+# The comment a suffix takes: (opening, closing).
+HASH, SLASH, BLOCK = ("# ", ""), ("// ", ""), ("/* ", " */")
+SUFFIXES = {
+    ".py": HASH,
+    ".sh": HASH,
+    ".yaml": HASH,
+    ".yml": HASH,
+    ".toml": HASH,
+    ".js": SLASH,
+    ".mjs": SLASH,
+    ".cjs": SLASH,
+    ".css": BLOCK,
+}
+
+# Never headed, whatever the type; REUSE.toml states the copyright and licence of each.
+#   starter/         `cockpit init` copies it into a user's pack, where the files are the user's own
+#   LICENSES/        licence texts
+#   docs/reference/  written by scripts/gen
+#   kernel/schema/   written by scripts/gen
+#   dashboard/dist/  what a build of dashboard/src wrote
+#   desktop/plugin.js  the bundle `npm run build` writes; it also carries third-party code
+UNHEADED = (
+    "starter/",
+    "LICENSES/",
+    "docs/reference/",
+    "kernel/schema/",
+    "dashboard/dist/",
+    "desktop/plugin.js",
+    "desktop/node_modules/",
+)
+
+HEAD = 8  # a header is looked for in this many leading lines
+CODING = re.compile(r"^[ \t\f]*#.*?coding[:=][ \t]*[-\w.]+")
+# a first-line editor directive stays first: a language server reads it only there
+DIRECTIVE = re.compile(r"^#\s*yaml-language-server:")
+
+
+def tracked(root: str = ROOT) -> list:
+    """Every file git tracks or would track (new and not ignored), as repository paths."""
+    out = subprocess.run(
+        ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
+        cwd=root,
+        stdout=subprocess.PIPE,
+        check=True,
+    ).stdout.decode("utf-8")
+    return sorted(path for path in out.split("\0") if path and os.path.isfile(os.path.join(root, path)))
+
+
+def comment(path: str, first: str):
+    """The comment syntax a file's header takes, or None for a file that is never headed."""
+    if any(path == rule or (rule.endswith("/") and path.startswith(rule)) for rule in UNHEADED):
+        return None
+    suffix = os.path.splitext(path)[1].lower()
+    if suffix in SUFFIXES:
+        return SUFFIXES[suffix]
+    if suffix == "" and first.startswith("#!"):
+        return SLASH if re.search(r"\b(node|deno|bun)\b", first) else HASH
+    return None
+
+
+def headed(text: str) -> bool:
+    """Whether a file already states a licence in its leading lines: such a file is left as it is."""
+    return any("SPDX-License-Identifier:" in line for line in text.splitlines()[:HEAD])
+
+
+def with_header(path: str, text: str):
+    """The file's text with the header added, or None when it takes none or has one. Only header lines are added."""
+    lines = text.splitlines(keepends=True)
+    if not lines:
+        return None  # an empty file has nothing to claim
+    style = comment(path, lines[0])
+    if style is None or headed(text):
+        return None
+    opening, closing = style
+    at = 0
+    if lines[0].startswith("#!"):
+        at = 1
+        if path.endswith(".py") or "python" in lines[0]:
+            at += 1 if len(lines) > 1 and CODING.match(lines[1]) else 0
+    elif path.endswith(".py") and CODING.match(lines[0]):
+        at = 1
+    elif DIRECTIVE.match(lines[0]):
+        at = 1
+    if at and not lines[at - 1].endswith("\n"):
+        lines[at - 1] += "\n"
+    header = [f"{opening}{line}{closing}\n" for line in LINES]
+    # a comment that follows keeps its own paragraph, so the header never reads as part of it
+    if at < len(lines) and lines[at].startswith(opening.strip()) and not lines[at].startswith("#!"):
+        header.append("\n")
+    return "".join(lines[:at] + header + lines[at:])
+
+
+def read(root: str, path: str):
+    """A file's text, or None for one that is not text."""
+    try:
+        with open(os.path.join(root, path), encoding="utf-8", newline="") as handle:
+            return handle.read()
+    except (UnicodeDecodeError, OSError):
+        return None
+
+
+def missing(root: str = ROOT, paths=None) -> dict:
+    """Every file that takes a header and lacks one, with the text it should hold."""
+    found = {}
+    for path in paths if paths else tracked(root):
+        text = read(root, path)
+        new = with_header(path, text) if text is not None else None
+        if new is not None:
+            found[path] = new
+    return found
+
+
+def main(argv) -> int:
+    if not argv or argv[0] not in ("--check", "--write"):
+        print("usage: scripts/headers --check|--write [path ...]", file=sys.stderr)
+        return 2
+    paths = [os.path.relpath(os.path.abspath(path), ROOT) for path in argv[1:]]
+    found = missing(ROOT, paths)
+    if argv[0] == "--check":
+        for path in sorted(found):
+            print(f"no licence header: {path}")
+        print(
+            f"headers: {len(found)} file(s) lack the header: scripts/headers --write adds it" if found else "headers ok"
+        )
+        return 1 if found else 0
+    for path, text in sorted(found.items()):
+        # the same file is written in place, so its mode (an executable stays one) is kept
+        with open(os.path.join(ROOT, path), "w", encoding="utf-8", newline="") as out:
+            out.write(text)
+        print(f"headed {path}")
+    print(f"headers: wrote {len(found)} file(s)")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv[1:]))

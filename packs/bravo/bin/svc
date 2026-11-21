@@ -1,0 +1,14 @@
+#!/bin/sh
+# SPDX-FileCopyrightText: 2026 Mohammadreza Kadivar
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# Fixture service runtime: one line per call in $COCKPIT_ROOT/bravo-svc.log; marker files steer its answers.
+echo "$*" >> "$COCKPIT_ROOT/bravo-svc.log"
+case "$1" in
+  report) echo '{"rows": [{"name": "cache", "state": "running", "detail": "hit rate 0.9"}, {"name": "api", "state": "failed", "detail": "port 7200 busy"}, {"name": "tunnel", "state": "skipped"}, {"name": "ghost", "state": "haunted"}]}'; exit 0;;
+  profiles) echo '[{"id": "quarter"}, {"id": "full"}]'; exit 0;;
+esac
+name=$1; verb=$2
+[ -f "$COCKPIT_ROOT/bravo-svc-$name.down" ] && [ "$verb" = up ] && { echo "north $name: a dependency is down" >&2; exit 3; }
+[ -f "$COCKPIT_ROOT/bravo-svc-$name.fail" ] && [ "$verb" = up ] && { echo "north $name failed" >&2; exit 1; }
+echo "north $name $verb $3"

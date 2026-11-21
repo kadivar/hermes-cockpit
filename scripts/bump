@@ -1,0 +1,144 @@
+#!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2026 Mohammadreza Kadivar
+# SPDX-License-Identifier: AGPL-3.0-or-later
+"""The plugin's version, written once and held equal everywhere else. `plugin.yaml` is the source (it is what Hermes
+reads); the other files state the version literally because their tools require it, and are checked against it.
+
+  scripts/bump --check     every literal equals plugin.yaml's version; exit 1 names the ones that do not
+  scripts/bump 0.2.0       write that version into every literal, and move the changelog's Unreleased entries under
+                           a heading for it with today's date
+  scripts/bump --notes 0.2.0   print the changelog's section for that version (a release's notes); exit 1 when the
+                           tree states another version or the changelog has no such section
+
+Standard library only.
+"""
+
+import datetime
+import os
+import re
+import sys
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SOURCE = "plugin.yaml"
+VERSION = r"\d+\.\d+\.\d+(?:[-.]?(?:a|b|rc|dev|post)\.?\d+)?"
+# (file, the line that states the version: group 1 before it, group 2 after it). A file that is absent states none.
+LITERALS = (
+    ("plugin.yaml", r"(?m)^(version:\s*)" + VERSION + r"(\s*)$"),
+    ("pyproject.toml", r'(?m)^(version\s*=\s*")' + VERSION + r'(")'),
+    ("kernel/cockpitlib/__init__.py", r'(?m)^(__version__\s*=\s*")' + VERSION + r'(")'),
+    ("dashboard/manifest.json", r'(?m)^(\s*"version":\s*")' + VERSION + r'(")'),
+)
+CHANGELOG = "CHANGELOG.md"
+UNRELEASED = "## [Unreleased]"
+
+
+def stated(root: str, name: str, pattern: str):
+    """The version that file states, None when the file is absent, "" when it has no such line."""
+    try:
+        text = open(os.path.join(root, name), encoding="utf-8").read()
+    except OSError:
+        return None
+    match = re.search(pattern, text)
+    return text[match.end(1) : match.start(2)] if match else ""
+
+
+def source(root: str) -> str:
+    found = stated(root, *LITERALS[0])
+    if not found:
+        raise SystemExit(f"{SOURCE} states no version (a line `version: 1.2.3`)")
+    return found
+
+
+def differing(root: str) -> list:
+    """Every literal that is not the source's version: "file: states X, plugin.yaml states Y"."""
+    want = source(root)
+    found = []
+    for name, pattern in LITERALS[1:]:
+        have = stated(root, name, pattern)
+        if have is not None and have != want:
+            found.append(f"{name}: states {have or 'no version'}, {SOURCE} states {want}")
+    return found
+
+
+def released(text: str, version: str, day: str) -> str:
+    """The changelog with what stood under Unreleased moved under a heading for the version; Unreleased stays, empty.
+    A changelog with no Unreleased heading, or with nothing under it, is left as it is."""
+    start = text.find(UNRELEASED)
+    if start < 0:
+        return text
+    after = start + len(UNRELEASED)
+    following = re.search(r"(?m)^## ", text[after:])
+    end = after + following.start() if following else len(text)
+    body = text[after:end].strip("\n")
+    if not body.strip():
+        return text
+    return text[:after] + f"\n\n## [{version}] - {day}\n\n" + body + "\n" + ("\n" + text[end:] if following else "")
+
+
+def notes(root: str, version: str) -> str:
+    """The changelog's section for that version, without its heading: what a release says about itself."""
+    if source(root) != version:
+        raise SystemExit(f"the tree states version {source(root)}, not {version}")
+    try:
+        text = open(os.path.join(root, CHANGELOG), encoding="utf-8").read()
+    except OSError:
+        text = ""
+    match = re.search(r"(?m)^## \[" + re.escape(version) + r"\][^\n]*\n", text)
+    following = re.search(r"(?m)^## ", text[match.end() :]) if match else None
+    body = (
+        (text[match.end() : match.end() + following.start()] if following else text[match.end() :]).strip()
+        if match
+        else ""
+    )
+    if not body:
+        raise SystemExit(f"{CHANGELOG} has no section for {version}: scripts/bump {version} cuts one from Unreleased")
+    return body
+
+
+def write(root: str, version: str, day: str) -> list:
+    """Every literal at that version and the changelog cut; the files that changed."""
+    if not re.fullmatch(VERSION, version):
+        raise SystemExit(f"{version} is no version: scripts/bump 1.2.3")
+    changed = []
+    for name, pattern in LITERALS:
+        path = os.path.join(root, name)
+        if not os.path.isfile(path):
+            continue
+        text = open(path, encoding="utf-8").read()
+        new = re.sub(pattern, lambda match: match.group(1) + version + match.group(2), text, count=1)
+        if new != text:
+            open(path, "w", encoding="utf-8").write(new)
+            changed.append(name)
+    path = os.path.join(root, CHANGELOG)
+    if os.path.isfile(path):
+        text = open(path, encoding="utf-8").read()
+        new = released(text, version, day)
+        if new != text:
+            open(path, "w", encoding="utf-8").write(new)
+            changed.append(CHANGELOG)
+    return changed
+
+
+def main(argv, root: str = ROOT) -> int:
+    if len(argv) == 2 and argv[0] == "--notes":
+        print(notes(root, argv[1]))
+        return 0
+    if len(argv) != 1 or argv[0] in ("-h", "--help"):
+        print(__doc__.strip(), file=sys.stderr)
+        return 2
+    if argv[0] == "--check":
+        found = differing(root)
+        for line in found:
+            print(line, file=sys.stderr)
+        print(
+            f"version {source(root)}: "
+            + ("the literals differ: scripts/bump <version> writes them all" if found else "every literal agrees")
+        )
+        return 1 if found else 0
+    changed = write(root, argv[0], datetime.date.today().isoformat())
+    print(f"version {argv[0]}: " + (", ".join(changed) if changed else "nothing to change"))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv[1:]))

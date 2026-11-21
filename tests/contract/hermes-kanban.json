@@ -1,0 +1,26 @@
+{
+  "hermes": "0.23.0",
+  "recorded_from": "hermes-agent d923a5eb48 and a real board on 2026-10-22; re-checked on 2bd378ed1b (0.23.0) and the live board on 2026-11-06: tables and moves unchanged",
+  "runtime_command": {
+    "flag": "hermes --print-runtime-command --module <module>",
+    "source": "hermes_cli/_launchers.py:1163-1165",
+    "last_argv_contains_once": "runpy.run_module('<module>', run_name='__main__', alter_sys=True)",
+    "note": "Hermes's environment has no PyYAML, so cockpit itself does not run there; only hermes_bridge/ helpers do"
+  },
+  "connect": "hermes_cli/kanban_db_connect.py:715 connect(db_path=None, *, board=None)",
+  "tables": {
+    "task_links": ["parent_id", "child_id"],
+    "task_comments": ["id", "task_id", "author", "body", "created_at"],
+    "task_events": ["id", "task_id", "run_id", "kind", "payload", "created_at"]
+  },
+  "functions": {
+    "create_task": {"source": "hermes_cli/kanban_db.py:1157", "initial_status": ["running", "blocked"], "status_after": "ready, todo when a parent is not done, triage when triage=True, blocked when initial_status=blocked", "id_shape": "t_<8 hex>", "events": ["created", "blocked (initial_status)"]},
+    "block_task": {"source": "hermes_cli/kanban_db.py:3125", "from": ["running", "ready"], "kinds": ["dependency", "needs_input", "capability", "transient"], "dependency_goes_to": "todo", "writes_result": false, "events": ["blocked"]},
+    "unblock_task": {"source": "hermes_cli/kanban_db.py:3557", "from": ["blocked", "scheduled"], "to": "ready, todo when a parent is not done", "events": ["unblocked"]},
+    "complete_task": {"source": "hermes_cli/kanban_db.py:2640", "from": ["running", "ready", "blocked", "review"], "writes_result": true, "events": ["completed"]},
+    "reclaim_task": {"source": "hermes_cli/kanban_db.py:2475", "from": ["running"], "returns_false_when_not_running": true, "events": ["reclaimed"]},
+    "add_comment": {"source": "hermes_cli/kanban_db.py:1671", "requires": ["author", "body"], "returns": "comment id", "events": ["commented"]},
+    "link_tasks": {"source": "hermes_cli/kanban_db.py:1534", "events": ["linked"]},
+    "schedule_task": {"source": "hermes_cli/kanban_db.py:3865", "from": ["todo", "ready", "running", "blocked"], "to": "scheduled: not dispatchable until unblock_task", "events": ["scheduled"]}
+  }
+}

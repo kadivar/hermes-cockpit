@@ -1,0 +1,150 @@
+# SPDX-FileCopyrightText: 2026 Mohammadreza Kadivar
+# SPDX-License-Identifier: AGPL-3.0-or-later
+[project]
+name = "hermes-cockpit"
+version = "0.1.0"
+description = "Lanes, an outbox gate, and a workspace pack for Hermes."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "AGPL-3.0-or-later"
+license-files = ["LICENSE", "NOTICE"]
+# what the kernel, the dashboard routes, the hooks and the scripts import at run time. `packaging` is not here on
+# purpose: only hermes_bridge/plugins.py imports it, that file runs in Hermes's own interpreter, and it works without it
+dependencies = [
+  "PyYAML>=6,<7",
+  "fastapi>=0.110,<1",
+]
+
+[project.optional-dependencies]
+# httpx is what fastapi's test client speaks through; jsonschema checks the fixture packs against the editor schemas
+test = [
+  "pytest",
+  "pytest-cov",
+  "pytest-xdist",
+  "httpx>=0.27,<1",
+  "jsonschema>=4,<5",
+]
+# the tools scripts/check runs over the code when they are installed, and CI always: run, never shipped. Pinned here so
+# a newer release of a tool cannot change the verdict; scripts/lock --dev writes requirements-dev.lock from these
+dev = [
+  "ruff==0.17.6",
+  "mypy==2.4.1",
+]
+
+[tool.setuptools.packages.find]
+where = ["kernel", "."]
+include = ["cockpitlib*", "dashboard*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["kernel", "."]
+markers = [
+  "structure: a fast test of the repository itself (entry points, the contribute skill, the reports folder); scripts/check runs these before the suite",
+  "known_bug(where, what): an open bug report under tests/reports/: the test fails as declared until the bug is fixed",
+]
+
+[tool.coverage.run]
+# lines and branches: a decision whose other side no test takes is a gap that a count of lines does not show
+branch = true
+# the recorder, the browser socket and the command line run in child processes; pytest-cov 7 no longer measures those by
+# itself, and without this the total reads 97% on a machine with the current tools
+patch = ["subprocess"]
+source = ["cockpitlib", "dashboard.cockpit"]
+
+[tool.coverage.report]
+# The gate, and the one place its figure is written: scripts/check and CI pass no figure, pytest-cov reads this one.
+# It is what the whole suite measures, lines and branches together, rounded down to one decimal: the gate holds the
+# level the code has, so it cannot sink unnoticed, and it is raised when the measure rises. Lines alone measure 99.8%.
+fail_under = 99.2
+# two decimals, or the total would be rounded to a whole number before it is compared with a gate that has one
+precision = 2
+show_missing = true
+skip_empty = true
+
+[tool.mypy]
+# A ratchet, not a clean bill: scripts/baselines counts the errors per file (tests/contract/type-errors.json) and the
+# `typecheck` step of scripts/check fails when a file's count rises. One verdict on every machine: the oldest supported
+# Python and one platform, whatever the checker runs on.
+python_version = "3.11"
+platform = "linux"
+mypy_path = "kernel:."
+explicit_package_bases = true
+namespace_packages = true
+scripts_are_modules = true
+check_untyped_defs = false
+
+# What is installed beside the code is read as untyped, so the count does not move with a dependency's release:
+# the web framework and the YAML reader, Hermes's own modules (there only inside Hermes), and the two modules the
+# hooks and the replay script find through a path they set when they start.
+[[tool.mypy.overrides]]
+module = [
+  "yaml", "yaml.*", "fastapi", "fastapi.*", "starlette", "starlette.*", "pydantic", "pydantic.*", "packaging", "packaging.*",
+  "hermes_cli", "hermes_cli.*", "agent", "agent.*", "hermes_bootstrap", "tools", "tools.*", "model_tools",
+  "_boot", "replay_support", "replay_support.*",
+]
+follow_imports = "skip"
+ignore_missing_imports = true
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+# the entry points are Python without a suffix
+extend-include = [
+  "bin/cockpit",
+  "scripts/bump",
+  "scripts/check",
+  "scripts/gen",
+  "scripts/gen-pointers",
+  "scripts/headers",
+  "scripts/lock",
+  "scripts/replay",
+  "starter/bin/notify",
+  "starter/bin/slot",
+  "starter/bin/tracker",
+  "tests/bin/gh",
+  "tests/bin/hermes",
+]
+# the code samples in the pages and the skills are prose: several are generated, and tests compare others with the code
+extend-exclude = ["*.md"]
+
+[tool.ruff.format]
+# a docstring here is a sentence that a command may print as its usage: its text is never rewritten
+docstring-code-format = false
+
+[tool.ruff.lint]
+select = [
+  "E", "F", "W",   # pycodestyle and pyflakes
+  "I",             # import order, within a block: a function-local import stays where it is
+  "B",             # bugbear
+  "UP",            # only what Python 3.11 already has
+  "S",             # bandit
+  "BLE",           # a blind except carries its reason on the line
+  "PLC", "PLE", "PLW",
+  "PLR0402", "PLR1711", "PLR1716", "PLR1730",
+]
+# complexity is not here on purpose (no C901, no PLR09xx): ruff has one limit for every function and no baseline per
+# function, so tests/test_no_function_grows_past_the_ratchet.py is the ratchet (tests/contract/complexity.json)
+ignore = [
+  "E501",     # long strings and docstrings are sentences; the formatter wraps code
+  "E731",     # a one-line adapter bound to a name is written as a lambda here
+  "B023",     # a helper defined inside a loop is called in that same turn of the loop; none outlives it
+  "B905",     # zip() stops at the shorter side on purpose; strict= would turn that into an exception
+  "PLC0415",  # function-local imports are deliberate: they keep the flat modules free of import cycles
+  "PLW0108",  # `lambda x: module.f(x)` looks the function up when called, which a test that replaces it relies on
+  "PLW2901",  # a loop variable narrowed in place (`line = line.strip()`) is the house style
+  "S105",     # it fires on variables named token (a word of a command line) and secret (where a key is kept)
+  "S603",     # running git, the forge CLI and a pack's own commands is the job; always an argv list, never a shell
+  "S607",     # those programs are found on PATH by design: the seat's PATH is part of its setup
+  "S608",     # each interpolated part is a column name or a run of `?` the code chose from the table's own columns;
+              # values always travel as parameters
+  "UP031",    # the five % formats left build a regular expression or shell text that is full of braces
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["cockpitlib", "dashboard"]
+
+[tool.ruff.lint.per-file-ignores]
+# a test asserts, runs fixture commands, writes fixture secrets and temp paths, and builds SQL for its own tables;
+# where it only needs to know that something refuses, it names no exception type
+"tests/**" = ["S", "B017"]
+"packs/*/plugins/**" = ["S101"]

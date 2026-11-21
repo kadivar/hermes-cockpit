@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: 2026 Mohammadreza Kadivar
+# SPDX-License-Identifier: AGPL-3.0-or-later
+name: trace-tap
+version: 0.0.1
+description: "Fixture seat plugin."
+author: fixture
+manifest_version: 1
+kind: standalone
+provides_tools: []
+provides_hooks: []

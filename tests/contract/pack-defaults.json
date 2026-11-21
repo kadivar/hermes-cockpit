@@ -1,0 +1,336 @@
+{
+ "defaults": [
+  {
+   "file": "acts.py",
+   "key": "base_branch"
+  },
+  {
+   "file": "acts.py",
+   "key": "branch_prefix"
+  },
+  {
+   "file": "acts.py",
+   "key": "outbox.amend_on_treat"
+  },
+  {
+   "file": "acts.py",
+   "key": "repos.yaml:repos[].base"
+  },
+  {
+   "file": "acts.py",
+   "key": "repos.yaml:repos[].watch_base"
+  },
+  {
+   "file": "acts.py",
+   "key": "seats.slots"
+  },
+  {
+   "file": "acts.py",
+   "key": "slot_provider"
+  },
+  {
+   "file": "acts.py",
+   "key": "ticket_pattern"
+  },
+  {
+   "file": "advise.py",
+   "key": "advisor.command"
+  },
+  {
+   "file": "advise.py",
+   "key": "advisor.max_calls"
+  },
+  {
+   "file": "board_view.py",
+   "key": "desktop.done_recent_hours"
+  },
+  {
+   "file": "capacity.py",
+   "key": "capacity.test_needs_slot"
+  },
+  {
+   "file": "ci_watch.py",
+   "key": "hours.ci_reread_minutes"
+  },
+  {
+   "file": "cleanup.py",
+   "key": "seats.slots"
+  },
+  {
+   "file": "decompose.py",
+   "key": "seats.slots"
+  },
+  {
+   "file": "decompose.py",
+   "key": "skills.yaml:cards.decompose"
+  },
+  {
+   "file": "egress.py",
+   "key": "tracker.connector"
+  },
+  {
+   "file": "environments.py",
+   "key": "environments[].slot"
+  },
+  {
+   "file": "forges/__init__.py",
+   "key": "forge.kind"
+  },
+  {
+   "file": "forges/github.py",
+   "key": "forge.host"
+  },
+  {
+   "file": "gate.py",
+   "key": "outbox.sweep_passes"
+  },
+  {
+   "file": "git_push.py",
+   "key": "base_branch"
+  },
+  {
+   "file": "git_push.py",
+   "key": "repos.yaml:repos[].base"
+  },
+  {
+   "file": "helpers.py",
+   "key": "helpers.yaml:helpers.*.label"
+  },
+  {
+   "file": "helpers.py",
+   "key": "helpers.yaml:helpers.*.status_names"
+  },
+  {
+   "file": "helpers.py",
+   "key": "helpers.yaml:helpers.*.verbs"
+  },
+  {
+   "file": "helpers.py",
+   "key": "helpers.yaml:helpers.*.who"
+  },
+  {
+   "file": "housekeeping.py",
+   "key": "seats.slots"
+  },
+  {
+   "file": "kickoff.py",
+   "key": "forge.bump_batch"
+  },
+  {
+   "file": "kickoff.py",
+   "key": "providers.coding.display_name"
+  },
+  {
+   "file": "kickoff.py",
+   "key": "seats.slots"
+  },
+  {
+   "file": "lend.py",
+   "key": "privileged.on_deny"
+  },
+  {
+   "file": "live_cli.py",
+   "key": "board"
+  },
+  {
+   "file": "ops.py",
+   "key": "base_branch"
+  },
+  {
+   "file": "ops.py",
+   "key": "branch_prefix"
+  },
+  {
+   "file": "ops.py",
+   "key": "export.keep"
+  },
+  {
+   "file": "ops.py",
+   "key": "hours.retry_seconds"
+  },
+  {
+   "file": "pack.py",
+   "key": "agent.cursor_hooks"
+  },
+  {
+   "file": "pack.py",
+   "key": "bump_sequence.stages[].after"
+  },
+  {
+   "file": "pack.py",
+   "key": "environments[].slot"
+  },
+  {
+   "file": "pack.py",
+   "key": "logins.scope"
+  },
+  {
+   "file": "pack.py",
+   "key": "privileged.scope"
+  },
+  {
+   "file": "pack.py",
+   "key": "repos.yaml:repos[].shipped"
+  },
+  {
+   "file": "pack.py",
+   "key": "repos.yaml:repos[].watched"
+  },
+  {
+   "file": "pack.py",
+   "key": "slots.provider"
+  },
+  {
+   "file": "pack.py",
+   "key": "standup_enabled"
+  },
+  {
+   "file": "pack.py",
+   "key": "ticket_pattern"
+  },
+  {
+   "file": "pack.py",
+   "key": "tracker.kind"
+  },
+  {
+   "file": "pr_watch.py",
+   "key": "forge.rereview_job"
+  },
+  {
+   "file": "pr_watch.py",
+   "key": "hours.pr_stale_hours"
+  },
+  {
+   "file": "pr_watch.py",
+   "key": "hours.rereview_quiet_minutes"
+  },
+  {
+   "file": "publish.py",
+   "key": "base_branch"
+  },
+  {
+   "file": "publish.py",
+   "key": "repos.yaml:repos[].base"
+  },
+  {
+   "file": "record.py",
+   "key": "human_browser_port"
+  },
+  {
+   "file": "sequence.py",
+   "key": "forge.bump_batch"
+  },
+  {
+   "file": "settings.py",
+   "key": "budget.monthly_usd"
+  },
+  {
+   "file": "settings.py",
+   "key": "budget.plan_window_max_pct"
+  },
+  {
+   "file": "settings.py",
+   "key": "worktree_gc.days"
+  },
+  {
+   "file": "settings.py",
+   "key": "worktree_gc.enabled"
+  },
+  {
+   "file": "setup.py",
+   "key": "standup_enabled"
+  },
+  {
+   "file": "slots.py",
+   "key": "slot_browser"
+  },
+  {
+   "file": "slots.py",
+   "key": "slot_provider"
+  },
+  {
+   "file": "slots.py",
+   "key": "slots.lock_wait_seconds"
+  },
+  {
+   "file": "slots.py",
+   "key": "slots.provider"
+  },
+  {
+   "file": "slots.py",
+   "key": "slots.stores[].minimum"
+  },
+  {
+   "file": "slots.py",
+   "key": "stores[].minimum"
+  },
+  {
+   "file": "slots.py",
+   "key": "stores[].name"
+  },
+  {
+   "file": "standup_note.py",
+   "key": "standup.chat_file"
+  },
+  {
+   "file": "standup_note.py",
+   "key": "standup.order"
+  },
+  {
+   "file": "test_flow.py",
+   "key": "testflow.banners.in_progress"
+  },
+  {
+   "file": "test_flow.py",
+   "key": "testflow.banners.not_ok"
+  },
+  {
+   "file": "test_flow.py",
+   "key": "testflow.banners.ok"
+  },
+  {
+   "file": "test_flow.py",
+   "key": "testflow.evidence_dir"
+  },
+  {
+   "file": "test_flow.py",
+   "key": "testflow.plan_file"
+  },
+  {
+   "file": "test_flow.py",
+   "key": "testflow.results_file"
+  },
+  {
+   "file": "test_flow.py",
+   "key": "testflow.review_mark"
+  },
+  {
+   "file": "test_flow.py",
+   "key": "testflow.run_dir"
+  },
+  {
+   "file": "test_flow.py",
+   "key": "testflow.title"
+  },
+  {
+   "file": "trackers/__init__.py",
+   "key": "tracker.kind"
+  },
+  {
+   "file": "trackers/base.py",
+   "key": "tracker.browse_url"
+  },
+  {
+   "file": "trackers/jira.py",
+   "key": "tracker.connector"
+  },
+  {
+   "file": "trackers/jira.py",
+   "key": "tracker.issue_type"
+  },
+  {
+   "file": "trackers/local.py",
+   "key": "tracker.local.statuses"
+  }
+ ]
+}

@@ -1,0 +1,41 @@
+#!/usr/bin/env python3
+"""Example notify command: keeps each message in a file a human can read.
+
+Contract (pack.yaml `notify.<event>: [bin/notify]`): cockpit runs this once per event and key, with
+  - the message body on stdin,
+  - COCKPIT_EVENT       the event's name (ready_for_review, ci_failed, ticket_done, ...),
+  - COCKPIT_EVENT_KEY   what the event is about (a ticket, a pull request at a commit).
+Exit 0 means sent: cockpit will not send that event for that key again. Any other exit is a failed send: the last
+line you print is shown in the Inbox, and cockpit tries again on its next pass.
+
+Replace the body of main() with your own channel (a chat webhook, a mail command). Keep secrets out of pack.yaml:
+read them here from the environment.
+"""
+
+import os
+import sys
+import time
+
+
+def main() -> int:
+    event = os.environ.get("COCKPIT_EVENT", "")
+    if not event:
+        print(
+            "notify: COCKPIT_EVENT is not set (cockpit sets it; run through a notify key of the pack)", file=sys.stderr
+        )
+        return 1
+    body = sys.stdin.read().strip()
+    folder = os.environ.get("COCKPIT_STARTER_STATE") or os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), os.pardir, ".cockpit-starter"
+    )
+    os.makedirs(folder, exist_ok=True)
+    with open(os.path.join(folder, "notify.log"), "a", encoding="utf-8") as handle:
+        handle.write(
+            f"{time.strftime('%Y-%m-%d %H:%M:%S')} {event} {os.environ.get('COCKPIT_EVENT_KEY', '')}\n{body}\n\n"
+        )
+    print(f"kept in {os.path.realpath(os.path.join(folder, 'notify.log'))}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

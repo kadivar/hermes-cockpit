@@ -1,0 +1,29 @@
+# SPDX-FileCopyrightText: 2026 Mohammadreza Kadivar
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# Conceptual map for the acme fixture. Not a list of repositories.
+version: 1
+repos: [api, web]
+
+areas:
+  - id: orders
+    title: Orders
+    summary: A customer places an order and can look it up later.
+    features:
+      - id: place-order
+        title: Place an order
+        user: Submits a basket and gets a confirmation.
+        hld: The web checkout calls the order route on the api.
+        anchors:
+          - { repo: api, paths: ["orders/**"] }
+          - { repo: web, paths: ["checkout/**"] }
+        depends: [queue]
+
+components:
+  - id: queue
+    title: Job queue
+    summary: Work that continues after the response.
+    hld: Background jobs on the api.
+    anchors:
+      - { repo: api, paths: ["jobs/**"] }
+    used_by: [place-order]

@@ -1,0 +1,40 @@
+{
+  "row_fields": [
+    "card_id",
+    "chain",
+    "ci",
+    "created_at",
+    "created_by",
+    "digest_no",
+    "endorsed",
+    "evidence",
+    "files",
+    "halted",
+    "history",
+    "hold",
+    "human",
+    "id",
+    "order",
+    "path",
+    "payload",
+    "pr",
+    "prs",
+    "receipt",
+    "returned",
+    "review",
+    "risk",
+    "skills",
+    "stale_days",
+    "stale_head",
+    "status",
+    "summary",
+    "target",
+    "ticket",
+    "type",
+    "waits"
+  ],
+  "optional": [
+    "chain",
+    "halted"
+  ]
+}

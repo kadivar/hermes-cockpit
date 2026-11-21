@@ -1,0 +1,16 @@
+{
+  "hermes": "0.23.0",
+  "recorded_from": "agent/vault_store.py and tools/browser_vault_tool.py (re-checked on 0.23.0: VaultStore signatures unchanged)",
+  "store": "<HERMES_HOME>/vault/vault.json.enc (Fernet) with <HERMES_HOME>/vault/vault.key, 0600; one store per profile home",
+  "VaultStore": {
+    "__init__": ["base_dir"],
+    "add_item": ["kind", "label", "secret", "origin"],
+    "list_items": [],
+    "remove_item": ["item_id"],
+    "resolve_secret": ["item_id"]
+  },
+  "login_secret": {"required": ["identifier_type", "identifier", "password"], "optional": ["otp_secret"], "identifier_types": ["email", "phone", "username"]},
+  "meta": ["id", "kind", "label", "origin", "created_at", "identifier", "identifier_type", "has_otp"],
+  "otp": {"normalize_otp_secret": "base32 seed or otpauth://totp URI; seed|digits|period|algo when not 6/30/SHA1", "totp_now": ["seed", "digits", "period", "at"]},
+  "browser_vault": {"actions": ["list", "fill", "save_login", "enter_code", "unlock"], "args": ["action", "handle", "backend", "label"]}
+}
