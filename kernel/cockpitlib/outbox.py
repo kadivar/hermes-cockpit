@@ -533,7 +533,7 @@ def _request_sweep(ticket: str) -> None:
 
 
 def endorse(iid, risk, notes, lane, provider, model, pack=None) -> dict:
-    """The gatekeeper's pass on a pending (or held) intent whose checks are clean."""
+    """The gatekeeper's pass on a pending (or held) intent whose checks are clean. A held intent drops its hold."""
     intent = load(iid)
     if intent["status"] not in ("pending", "held"):
         raise CockpitError(f"{iid} is {intent['status']}; only a pending or held intent is endorsed")
@@ -557,6 +557,7 @@ def endorse(iid, risk, notes, lane, provider, model, pack=None) -> dict:
         **({"files": drafts} if drafts else {}),  # what was read is what may leave: publish compares
         **({"attachments": attached} if attached else {}),
     }
+    intent.pop("hold", None)  # the pass replaces a hold; the record is not endorsed and held at once
     save(intent)
     return intent
 
