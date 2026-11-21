@@ -89,8 +89,6 @@ run time and is installed here for the tests.
 | `@xterm/addon-fit` | MIT | bundled into `desktop/plugin.js` |
 | `@xterm/xterm` | MIT | bundled into `desktop/plugin.js` |
 | `esbuild` | MIT | build and tests |
-| `js-tokens` | MIT | build and tests (transitive) |
-| `loose-envify` | MIT | build and tests (transitive) |
 | `react` | MIT | build and tests |
 | `react-dom` | MIT | build and tests |
 | `scheduler` | MIT | build and tests (transitive) |
