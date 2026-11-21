@@ -12,7 +12,7 @@ import time
 from .errors import CockpitError
 from .fence import outside
 from .paths import qa_of, volumes, worktree_of
-from .store import append_line, dump_json, write_text
+from .store import append_line, dump_json, write_existing_text, write_text
 
 
 def state_dir(slot: int) -> str:
@@ -450,8 +450,9 @@ def _acquire(slot: int, wait: float = 0.0) -> bool:
 
 
 def _hand_lock(slot: int, pid: int) -> None:
-    """The bring-up process holds the lock from here on."""
-    write_text(_lock_path(slot), f"{pid}:0")
+    """The bring-up process holds the lock from here on. The lock is the one already taken for this warm: a bring-up
+    that finished first has removed it, and this does not create that file again."""
+    write_existing_text(_lock_path(slot), f"{pid}:0")
 
 
 class _held:

@@ -112,6 +112,29 @@ def write_text(path, text: str, encoding="utf-8", mode=None, exclusive: bool = F
     write_bytes(path, text.encode(encoding or locale.getpreferredencoding(False)), mode, exclusive)
 
 
+def write_existing_text(path, text: str, encoding="utf-8") -> bool:
+    """Replace the text of a file that is already there. A missing file stays missing: a replace would create it.
+    True when the text was written."""
+    import locale
+
+    path = os.fspath(path)
+    if os.path.islink(path):
+        path = os.path.realpath(path)
+    payload = text.encode(encoding or locale.getpreferredencoding(False))
+    try:
+        fd = os.open(path, os.O_WRONLY | os.O_TRUNC)
+    except FileNotFoundError:
+        return False
+    try:
+        view = memoryview(payload)
+        while view:
+            written = os.write(fd, view)
+            view = view[written:]
+    finally:
+        os.close(fd)
+    return True
+
+
 def dump_json(path, data, mode=None, exclusive: bool = False, **dumps) -> None:
     """The file holds exactly what json.dump(data, handle, **dumps) writes, whole or not at all."""
     write_bytes(path, json.dumps(data, **dumps).encode("utf-8"), mode, exclusive)

@@ -2,12 +2,15 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 name: ci
 on:
+  # a pull request has its own event, so a push of its branch does not start a second run that the first then cancels
   push:
+    branches: [master, rc]
   pull_request:
 # The job reads the repository and nothing else.
 permissions:
   contents: read
-# One group per branch, shared by the push run and the pull_request run. A later push cancels the older run.
+# One group per branch. A later run of that branch cancels the one still going.
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
