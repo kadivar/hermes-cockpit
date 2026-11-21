@@ -1,0 +1,93 @@
+/* Loaded only by the web dashboard via dashboard/manifest.json. */
+.cockpit-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+  color: var(--color-foreground);
+}
+.cockpit-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.75rem 1rem;
+}
+.cockpit-head h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  letter-spacing: -0.02em;
+}
+.cockpit-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.cockpit-panel {
+  min-height: 16rem;
+}
+.cockpit-panel h2 {
+  margin: 0 0 0.75rem;
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-muted-foreground);
+}
+.cockpit-columns {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+.cockpit-column {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-height: 12rem;
+  padding: 0.75rem;
+  border-radius: var(--radius, 0.5rem);
+  background: var(--color-muted);
+  border: 1px solid var(--color-border);
+}
+.cockpit-column h3 {
+  margin: 0;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-muted-foreground);
+}
+.cockpit-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.7rem 0.8rem;
+  border-radius: calc(var(--radius, 0.5rem) - 2px);
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+}
+.cockpit-card p,
+.cockpit-empty {
+  margin: 0;
+  color: var(--color-muted-foreground);
+  font-size: 0.85rem;
+}
+.cockpit-panel ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.cockpit-panel li {
+  padding: 0.65rem 0.8rem;
+  border-radius: calc(var(--radius, 0.5rem) - 2px);
+  background: var(--color-muted);
+  border: 1px solid var(--color-border);
+}
+.cockpit-error {
+  color: var(--color-destructive, #ff6b6b);
+}
+@media (max-width: 900px) {
+  .cockpit-columns {
+    grid-template-columns: 1fr;
+  }
+}

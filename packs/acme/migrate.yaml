@@ -1,0 +1,28 @@
+# SPDX-FileCopyrightText: 2026 Mohammadreza Kadivar
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# A fictional earlier pipeline ("relay") this fixture moves off. Every name here is invented.
+legacy:
+  profiles: {replace: [intake], remove: [relay-runner]}
+  plugins: {disable: [relay-desk], keep: [ledger-view]}
+  crons: {retire: [relay-nightly], replace: [morning-digest]}
+  shell_hooks:
+    - {event: pre_tool_call, command: /opt/relay/guard.sh}
+  root:
+    soul_blocks: [{start: "<!-- relay concierge -->", end: "<!-- /relay concierge -->"}]
+    env_drop: [RELAY_TOKEN]
+    config_drop: [relay.mode]
+  editor_hooks: [.relay/hooks.json]
+records:
+  watch_id_prefixes: {rc: "inline:", ic: "issue:", rv: "review:"}
+  map:
+    - {from: relay-state/outbox, to: hermes/outbox, kind: intents}
+    - {from: relay-state/plans, to: hermes/qa, kind: dir}
+board:
+  flows: [{pattern: "^[A-Z]+-\\d+: relay-work", flow: card}]
+  rewrite: [{pattern: "relay-send", replace: "cockpit outbox new"}]
+slots:
+  bindings: [{from: "relay-state/slot{n}/ticket", to: ticket, format: "{value}"}]
+exporters:
+  vault: {argv: [bin/relay-export], count_argv: [bin/relay-export, --count]}
+  extra: [{name: relay-archive, argv: [bin/relay-export, --archive]}]

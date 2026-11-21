@@ -1,0 +1,150 @@
+#!/usr/bin/env python3
+"""Example tracker command: a tracker kept in one JSON file, so a new workspace works before a real one is wired.
+
+Contract (pack.yaml `tracker: {kind: command, command: ["{pack}/bin/tracker"], reads: [comments, me, status]}`): cockpit
+runs this once per act, with COCKPIT_TRACKER_ACTION naming the act and one JSON object on stdin.
+The writes, and the title read, get the intent: {"ticket": ..., "payload": {...}}. Answer one JSON object and exit 0:
+  comment     -> {"id": ..., "url": ...}                (payload.comment_id: that comment gets the new text instead)
+  create      -> {"key": ..., "url": ...}
+  transition  -> {"status": ..., "url": ...}
+  summary     -> {"summary": <the issue's title>}      (a read; payload.issue names the issue)
+The reads are run only when pack.yaml names them in tracker.reads; they are what the comment watch and the standup note use:
+  comments    <- {"key": ..., "since": <a moment or null>}   -> {"comments": [{"id", "author", "created", "updated", "body"}]}
+  me          <- {}                                           -> {"login": <who this command writes as>}
+  status      <- {"key": ...}                                 -> {"status": ...}
+Exit 2 for an action you do not implement: for a read that means "this tracker has none", not a failure. Any other
+exit fails the act: the end of what you print is shown to the human, and nothing is recorded as published.
+
+To use your own tracker, keep the actions you need and replace the file with calls to it. Read credentials here, from
+the environment; never put them in pack.yaml.
+"""
+
+import datetime
+import json
+import os
+import sys
+
+ACTIONS = ("comment", "create", "transition", "summary", "comments", "me", "status")
+ME = "me"
+
+
+def _path() -> str:
+    folder = os.environ.get("COCKPIT_STARTER_STATE") or os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), os.pardir, ".cockpit-starter"
+    )
+    os.makedirs(folder, exist_ok=True)
+    return os.path.join(folder, "tracker.json")
+
+
+def _text(payload: dict) -> str:
+    """A body is inline text, or a file cockpit copied beside the intent."""
+    if payload.get("body_file") and os.path.isfile(str(payload["body_file"])):
+        return open(payload["body_file"], encoding="utf-8").read()
+    return str(payload.get("body") or "")
+
+
+def main() -> int:
+    action = os.environ.get("COCKPIT_TRACKER_ACTION", "")
+    if action not in ACTIONS:
+        print(
+            f"tracker: COCKPIT_TRACKER_ACTION is {action or 'not set'}; it is one of {', '.join(ACTIONS)}",
+            file=sys.stderr,
+        )
+        return 2
+    try:
+        intent = json.loads(sys.stdin.read() or "{}")
+    except ValueError:
+        print("tracker: stdin is not JSON", file=sys.stderr)
+        return 2
+    if action == "me":
+        print(json.dumps({"login": ME}))
+        return 0
+    payload = intent.get("payload") or {}
+    path = _path()
+    try:
+        issues = json.load(open(path, encoding="utf-8"))
+    except (OSError, ValueError):
+        issues = {}
+    key = str(payload.get("issue") or intent.get("ticket") or intent.get("key") or "")
+    now = datetime.datetime.now(datetime.UTC).isoformat()
+    url = f"file://{os.path.realpath(path)}#{key}"
+    if action == "create":
+        project = str(payload.get("project") or (key.split("-", maxsplit=1)[0] if key else "TASK"))
+        key = f"{project}-{1 + max([int(name.rsplit('-', 1)[1]) for name in issues if name.startswith(project + '-') and name.rsplit('-', 1)[1].isdigit()] or [0])}"
+        issues[key] = {
+            "summary": str(payload.get("summary") or ""),
+            "status": "To Do",
+            "body": _text(payload),
+            "comments": [],
+        }
+        answer = {"key": key, "url": f"file://{os.path.realpath(path)}#{key}"}
+    elif not key:
+        print("tracker: the intent names no issue", file=sys.stderr)
+        return 1
+    else:
+        issue = issues.setdefault(key, {"summary": "", "status": "To Do", "body": "", "comments": []})
+        if action == "summary":
+            print(json.dumps({"summary": issue["summary"]}))
+            return 0
+        if action == "status":
+            print(json.dumps({"status": issue["status"]}))
+            return 0
+        if action == "comments":
+            since = str(intent.get("since") or "")
+            rows = [
+                {
+                    "id": str(row["id"]),
+                    "author": row.get("author") or ME,
+                    "created": row.get("created") or "",
+                    "updated": row.get("updated") or row.get("created") or "",
+                    "body": row["body"],
+                }
+                for row in issue["comments"]
+            ]
+            print(json.dumps({"comments": [row for row in rows if not since or row["updated"] >= since]}))
+            return 0
+        if action == "comment":
+            old = next(
+                (
+                    row
+                    for row in issue["comments"]
+                    if payload.get("comment_id") and str(row["id"]) == str(payload["comment_id"])
+                ),
+                None,
+            )
+            if payload.get("comment_id") and old is None:
+                print(f"tracker: {key} has no comment {payload['comment_id']}", file=sys.stderr)
+                return 1
+            if old is not None:
+                old.update(
+                    body=_text(payload),
+                    updated=now,
+                    attach=list(old.get("attach") or []) + list(payload.get("attach") or []),
+                )
+                answer = {"id": old["id"], "url": url}
+            else:
+                issue["comments"].append(
+                    {
+                        "id": len(issue["comments"]) + 1,
+                        "author": ME,
+                        "created": now,
+                        "updated": now,
+                        "body": _text(payload),
+                        "attach": list(payload.get("attach") or []),
+                    }
+                )
+                answer = {"id": issue["comments"][-1]["id"], "url": url}
+        else:
+            if not payload.get("to"):
+                print("tracker: a transition names the status to move to (payload.to)", file=sys.stderr)
+                return 1
+            issue["status"] = str(payload["to"])
+            answer = {"status": issue["status"], "url": url}
+    with open(path, "w", encoding="utf-8") as handle:
+        json.dump(issues, handle, indent=1)
+    print(json.dumps(answer))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

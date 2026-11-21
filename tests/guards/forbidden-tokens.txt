@@ -1,0 +1,10 @@
+# The fixture packs' own identities. They belong in packs/ only; anywhere else they are a hard-coded adopter value.
+# Real adopter names never go in this file. Keep them in a local file named by COCKPIT_EXTRA_TOKENS.
+acme
+bravo
+north.test
+north-cache
+north-admin
+secret.acme.test
+acme-db
+acme-admin

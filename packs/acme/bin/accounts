@@ -1,0 +1,8 @@
+#!/bin/sh
+# SPDX-FileCopyrightText: 2026 Mohammadreza Kadivar
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# Fixture account maker: a new password per call; desk accounts also get an authenticator seed.
+count=$(cat "$COCKPIT_ROOT/acme-accounts" 2>/dev/null || echo 0); count=$((count + 1)); echo "$count" > "$COCKPIT_ROOT/acme-accounts"
+case "$COCKPIT_ACCOUNT_IDENTIFIER" in desk@*) seed=',"otp_secret":"JBSWY3DPEHPK3PXP"';; *) seed='';; esac
+printf '{"password":"acme-%s-%s-%s"%s}\n' "$COCKPIT_ACCOUNT_ACTION" "$count" "${COCKPIT_ACCOUNT_IDENTIFIER%%@*}" "$seed"

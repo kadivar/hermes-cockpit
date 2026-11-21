@@ -1,0 +1,36 @@
+# SPDX-FileCopyrightText: 2026 Mohammadreza Kadivar
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# Fixture helpers: invented services for the acme stack.
+groups:
+  stack:
+    label: Acme stack
+    status: {argv: ["{pack}/bin/helper", status], parse: lines}
+helpers:
+  queue:
+    label: Message queue
+    group: stack
+    argv: ["{pack}/bin/helper", "{verb}", queue]
+    verbs: [start, stop, restart]
+  ledger-db:
+    label: Ledger database
+    group: stack
+    argv: ["{pack}/bin/helper", "{verb}", ledger-db]
+    depends_on: [queue]
+  web:
+    label: Web :8100
+    group: stack
+    argv: ["{pack}/bin/helper", "{verb}", web]
+    depends_on: [ledger-db]
+    status_names: [web local]
+  everything:
+    label: Whole acme stack
+    group: stack
+    composite: [web, queue]
+    warn: Whole stack · a few minutes.
+  model:
+    label: Local model
+    argv: ["{pack}/bin/helper", "{verb}", model, "{choice}"]
+    verbs: [use]
+    options: [small, large]
+    who: both

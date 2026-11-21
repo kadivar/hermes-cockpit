@@ -1,0 +1,16 @@
+.venv
+*.egg-info/
+.venv-test/
+__pycache__/
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.json
+htmlcov/
+desktop/node_modules
+desktop/.tmp/
+*.pyc
+check-result.json
+.mypy_cache/
+.ruff_cache/
+.tmp/

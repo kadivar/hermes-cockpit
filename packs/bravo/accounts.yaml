@@ -1,0 +1,8 @@
+# SPDX-FileCopyrightText: 2026 Mohammadreza Kadivar
+# SPDX-License-Identifier: AGPL-3.0-or-later
+command: [bin/staff, --site, north]
+accounts:
+  - origin: https://app.north.test
+    identifier: north-qa@north.test
+    readers: [tester-1, analyst]
+    renew_days: 14

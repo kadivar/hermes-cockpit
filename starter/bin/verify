@@ -1,0 +1,18 @@
+#!/bin/sh
+# Example verify command: refuses a pushed file that still holds a merge-conflict marker.
+#
+# Contract (repos.yaml `verify: [["{pack}/bin/verify", "{files}"]]`): before a push is offered for approval, cockpit
+# runs each verify command of the repo in the ticket's checkout, with the changed files in place of {files}.
+#   exit 0  the files are fine; what you print is kept with the intent
+#   else    the push is held, and what you print is shown as the reason
+# Replace the check with your formatter or linter in its check-only mode. Never let a verify command change a file.
+status=0
+for file in "$@"; do
+  [ -f "$file" ] || continue          # a deleted file is in the list too
+  if grep -q -e '^<<<<<<< ' -e '^>>>>>>> ' "$file"; then
+    echo "verify: $file still holds a merge-conflict marker"
+    status=1
+  fi
+done
+[ "$status" -eq 0 ] && echo "verify: $# file(s) clean"
+exit "$status"

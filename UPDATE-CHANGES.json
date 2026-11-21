@@ -1,0 +1,27 @@
+{
+ "effective_changes": [
+  "desktop.diff_held_suffix",
+  "desktop.hints",
+  "finding_labels",
+  "forge.rereview_job",
+  "github_org",
+  "jira_project",
+  "jira_url",
+  "migrate.yaml:records.watch_id_prefixes",
+  "standup",
+  "standup_hour",
+  "testflow.banners",
+  "testflow.evidence_dir",
+  "testflow.plan_file",
+  "testflow.results_file",
+  "testflow.review_mark",
+  "testflow.title",
+  "tracker.browse_url",
+  "tracker.closed_statuses",
+  "tracker.kind",
+  "tracker.local",
+  "tracker.reads",
+  "tracker.repo",
+  "tracker.status_labels"
+ ]
+}

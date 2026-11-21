@@ -1,0 +1,539 @@
+#!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2026 Mohammadreza Kadivar
+# SPDX-License-Identifier: AGPL-3.0-or-later
+"""A forge stand-in for tests: the `gh api` REST and GraphQL calls cockpit makes, against a JSON state file.
+
+State: $COCKPIT_ROOT/fake-gh.json (tests.support.fake_gh seeds it). Every call is appended to $COCKPIT_ROOT/fake-gh-calls.jsonl.
+state["fail"] maps "METHOD path-regex" to an error message, to make one call fail.
+"""
+
+import hashlib
+import json
+import os
+import re
+import sys
+
+ROOT = os.environ.get("COCKPIT_ROOT") or "."
+STATE = os.path.join(ROOT, "fake-gh.json")
+CALLS = os.path.join(ROOT, "fake-gh-calls.jsonl")
+
+
+def load():
+    try:
+        return json.load(open(STATE, encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def save(state):
+    json.dump(state, open(STATE, "w", encoding="utf-8"), indent=1)
+
+
+def fail(message, code=1):
+    print(message, file=sys.stderr)
+    sys.exit(code)
+
+
+def new_id(state):
+    state["next_id"] = int(state.get("next_id") or 5000) + 1
+    return state["next_id"]
+
+
+def repo_of(state, owner, name):
+    repos = state.setdefault("repos", {})
+    return repos.setdefault(f"{owner}/{name}", {"pulls": {}, "labels": [], "checks": {}, "runs": {}})
+
+
+def pull_of(repo, number):
+    found = repo["pulls"].get(str(number))
+    if found is None:
+        fail(f"HTTP 404: no pull request {number}")
+    return found
+
+
+def stamp(state):
+    """A moment later than every one given before: an issue's comments are told apart by their time."""
+    state["tick"] = int(state.get("tick") or 0) + 1
+    return f"2026-01-01T{state['tick'] // 3600:02d}:{state['tick'] // 60 % 60:02d}:{state['tick'] % 60:02d}Z"
+
+
+def issue_view(issue):
+    return {
+        key: ([{"name": label} for label in value] if key == "labels" else value)
+        for key, value in issue.items()
+        if key != "issue_comments"
+    }
+
+
+def comment_view(comment):
+    return {
+        key: comment[key]
+        for key in (
+            "id",
+            "body",
+            "path",
+            "line",
+            "html_url",
+            "user",
+            "position",
+            "pull_request_review_id",
+            "created_at",
+            "in_reply_to_id",
+        )
+        if key in comment
+    }
+
+
+def thread_of(pull, comment_id):
+    return next((thread for thread in pull.get("threads", []) if comment_id in thread["comments"]), None)
+
+
+def rest(state, method, path, body):
+    me = state.get("me") or "human"
+    match = re.fullmatch(r"repos/([^/]+)/([^/?]+)(/.*)?", path.split("?", 1)[0])
+    query = dict(part.split("=", 1) for part in path.split("?", 1)[1].split("&")) if "?" in path else {}
+    if path == "user":
+        return {"login": me}
+    if path.startswith("search/issues"):
+        import urllib.parse
+
+        words = urllib.parse.unquote(query.get("q", "")).split()
+        wanted = next((word.split(":", 1)[1] for word in words if word.startswith("review-requested:")), "")
+        org = next((word.split(":", 1)[1] for word in words if word.startswith("org:")), "")
+        items = []
+        for full, held in sorted((state.get("repos") or {}).items()):
+            if org and not full.startswith(f"{org}/"):
+                continue
+            for number, pull in sorted(held["pulls"].items()):
+                reviewers = [
+                    who.get("login") if isinstance(who, dict) else who for who in pull.get("requested_reviewers") or []
+                ]
+                if pull.get("state") == "open" and wanted in reviewers:
+                    items.append(
+                        {
+                            "number": int(number),
+                            "title": pull.get("title"),
+                            "repository_url": f"https://api.github.com/repos/{full}",
+                        }
+                    )
+        return {"items": items}
+    if not match:
+        fail(f"HTTP 404: {path}")
+    owner, name, rest_path = match.group(1), match.group(2), match.group(3) or ""
+    repo = repo_of(state, owner, name)
+    url = f"https://github.com/{owner}/{name}"
+    if rest_path == "/labels":
+        return [{"name": label} for label in repo["labels"]]
+    if rest_path == "/pulls" and method == "GET":
+        head = query.get("head", "").split(":", 1)[-1]
+        return [
+            pull
+            for pull in repo["pulls"].values()
+            if pull["state"] == "open"
+            and (not head or pull["head"]["ref"] == head)
+            and (not query.get("base") or pull["base"]["ref"] == query["base"])
+        ]
+    if rest_path == "/pulls" and method == "POST":
+        number = (
+            max([int(key) for key in [*repo["pulls"], *repo.get("issues", {})]] or [0]) + 1
+        )  # issues and pull requests count on together
+        pull = {
+            "number": number,
+            "title": body["title"],
+            "body": body.get("body") or "",
+            "draft": bool(body.get("draft")),
+            "user": {"login": me},
+            "merged": False,
+            "requested_reviewers": [],
+            "head": {
+                "ref": body["head"],
+                "sha": state.get("heads", {}).get(f"{owner}/{name}:{body['head']}", "0" * 40),
+            },
+            "base": {"ref": body["base"]},
+            "state": "open",
+            "node_id": f"PR_{number}",
+            "html_url": f"{url}/pull/{number}",
+            "labels": [],
+            "assignees": [],
+            "issue_comments": [],
+            "reviews": {},
+            "review_comments": {},
+            "threads": [],
+            "files": [],
+        }
+        repo["pulls"][str(number)] = pull
+        return pull
+    found = re.fullmatch(r"/pulls/(\d+)(/.*)?", rest_path)
+    if found:
+        pull = pull_of(repo, found.group(1))
+        tail = found.group(2) or ""
+        number = pull["number"]
+        if not tail and method == "GET":
+            return pull
+        if not tail and method == "PATCH":
+            for key in ("title", "body"):
+                if key in body:
+                    pull[key] = body[key]
+            if "base" in body:
+                pull["base"] = {"ref": body["base"]}
+            return pull
+        if tail == "/files":
+            return pull["files"]
+        if tail == "/comments" and method == "GET":
+            return [comment_view(row) for row in pull["review_comments"].values()]
+        if tail == "/reviews" and method == "GET":
+            return list(pull["reviews"].values())
+        if tail == "/reviews" and method == "POST":
+            review = new_id(state)
+            pull["reviews"][str(review)] = {
+                "id": review,
+                "node_id": f"PRR_{review}",
+                "state": "PENDING",
+                "body": body.get("body") or "",
+                "user": {"login": me},
+                "commit_id": body.get("commit_id"),
+                "comments": [],
+            }
+            for row in body.get("comments") or []:
+                cid = new_id(state)
+                pull["review_comments"][str(cid)] = {
+                    "id": cid,
+                    "body": row["body"],
+                    "path": row["path"],
+                    "line": row["line"],
+                    "user": {"login": me},
+                    "html_url": f"{url}/pull/{number}#discussion_r{cid}",
+                    "pull_request_review_id": review,
+                    "reactions": [],
+                }
+                pull["reviews"][str(review)]["comments"].append(cid)
+                pull["threads"].append({"id": f"PRRT_{cid}", "isResolved": False, "comments": [cid]})
+            return pull["reviews"][str(review)]
+        review_match = re.fullmatch(r"/reviews/(\d+)(/.*)?", tail)
+        if review_match:
+            review = pull["reviews"].get(review_match.group(1))
+            if review is None:
+                fail("HTTP 404: no review")
+            sub = review_match.group(2) or ""
+            if sub == "/comments":
+                return [comment_view(pull["review_comments"][str(cid)]) for cid in review["comments"]]
+            if sub == "/events":
+                review["state"] = {
+                    "REQUEST_CHANGES": "CHANGES_REQUESTED",
+                    "COMMENT": "COMMENTED",
+                    "APPROVE": "APPROVED",
+                }[body["event"]]
+                review["body"] = body.get("body") or review["body"]
+                return review
+            if method == "PUT":
+                review["body"] = body.get("body") or ""
+                return review
+            if method == "DELETE":
+                del pull["reviews"][review_match.group(1)]
+                return review
+            return review
+        reply = re.fullmatch(r"/comments/(\d+)/replies", tail)
+        if reply:
+            cid = int(reply.group(1))
+            thread = thread_of(pull, cid)
+            if thread is None:
+                fail("HTTP 404: no comment")
+            made = new_id(state)
+            pull["review_comments"][str(made)] = {
+                "id": made,
+                "body": body["body"],
+                "user": {"login": me},
+                "in_reply_to": cid,
+                "html_url": f"{url}/pull/{number}#discussion_r{made}",
+                "reactions": [],
+            }
+            thread["comments"].append(made)
+            return comment_view(pull["review_comments"][str(made)])
+    comment = re.fullmatch(r"/pulls/comments/(\d+)(/reactions)?", rest_path)
+    if comment:
+        found = None
+        for pull in repo["pulls"].values():
+            found = pull["review_comments"].get(comment.group(1)) or found
+        if found is None:
+            fail("HTTP 404: no comment")
+        if comment.group(2) and method == "GET":
+            return found["reactions"]
+        if comment.group(2):
+            found["reactions"].append({"content": body["content"], "user": {"login": me}})
+            return found["reactions"][-1]
+        found["body"] = body["body"]
+        return comment_view(found)
+    if rest_path == "/issues" and method == "POST":
+        number = max([int(key) for key in [*repo["pulls"], *repo.get("issues", {})]] or [0]) + 1
+        made = {
+            "number": number,
+            "title": body["title"],
+            "body": body.get("body") or "",
+            "state": "open",
+            "user": {"login": me},
+            "labels": sorted(set(body.get("labels") or [])),
+            "assignees": [{"login": login} for login in body.get("assignees") or []],
+            "html_url": f"{url}/issues/{number}",
+            "created_at": stamp(state),
+            "issue_comments": [],
+        }
+        repo.setdefault("issues", {})[str(number)] = made
+        return issue_view(made)
+    one = re.fullmatch(r"/issues/(\d+)", rest_path)
+    if one:
+        found = repo.get("issues", {}).get(one.group(1))
+        if (
+            found is None and one.group(1) in repo["pulls"]
+        ):  # the issues API answers for a pull request too, and says it is one
+            pull = repo["pulls"][one.group(1)]
+            return {
+                "number": pull["number"],
+                "title": pull["title"],
+                "body": pull["body"],
+                "state": pull["state"],
+                "user": pull["user"],
+                "labels": [{"name": label} for label in pull["labels"]],
+                "assignees": pull["assignees"],
+                "html_url": pull["html_url"],
+                "pull_request": {"html_url": pull["html_url"]},
+            }
+        if found is None:
+            fail(f"HTTP 404: no issue {one.group(1)}")
+        if method == "PATCH":
+            found.update({key: body[key] for key in ("title", "body", "state") if key in body})
+        return issue_view(found)
+    said = re.fullmatch(r"/issues/comments/(\d+)", rest_path)
+    if said:
+        found = next(
+            (
+                row
+                for held in repo.get("issues", {}).values()
+                for row in held["issue_comments"]
+                if str(row["id"]) == said.group(1)
+            ),
+            None,
+        )
+        if found is None:
+            fail("HTTP 404: no comment")
+        if method == "PATCH":
+            found.update(body=body["body"], updated_at=stamp(state))
+        return found
+    issue = re.fullmatch(r"/issues/(\d+)/(labels|assignees|comments)(?:/(.+))?", rest_path)
+    if issue:
+        ticket = repo.get("issues", {}).get(
+            issue.group(1)
+        )  # an issue that is not a pull request: its comments carry their times
+        pull = ticket or pull_of(repo, issue.group(1))
+        what = issue.group(2)
+        if ticket and what == "comments" and method == "GET":
+            import urllib.parse
+
+            since = urllib.parse.unquote(query.get("since", ""))
+            return [row for row in ticket["issue_comments"] if row["updated_at"] >= since]
+        if ticket and what == "comments":
+            now = stamp(state)
+            ticket["issue_comments"].append(
+                {"id": new_id(state), "body": body["body"], "user": {"login": me}, "created_at": now, "updated_at": now}
+            )
+            ticket["issue_comments"][-1]["html_url"] = (
+                f"{url}/issues/{ticket['number']}#issuecomment-{ticket['issue_comments'][-1]['id']}"
+            )
+            return ticket["issue_comments"][-1]
+        if what == "comments" and method == "GET":
+            return pull["issue_comments"]
+        if what == "labels" and method == "GET":
+            return [{"name": label} for label in pull["labels"]]
+        if what == "labels" and method == "PUT":
+            pull["labels"] = sorted(set(body["labels"]))
+        elif what == "labels" and method == "POST":
+            pull["labels"] = sorted(set(pull["labels"]) | set(body["labels"]))
+        elif what == "labels" and method == "DELETE":
+            import urllib.parse
+
+            # the server reads the last segment as GitHub does: percent-decoded, so `Needs%20Review` is that label
+            label = urllib.parse.unquote(issue.group(3))
+            if label not in pull["labels"]:
+                fail("HTTP 404: Label does not exist")
+            pull["labels"].remove(label)
+        elif what == "assignees":
+            pull["assignees"] = [{"login": login} for login in body["assignees"]]
+        else:
+            made = new_id(state)
+            pull["issue_comments"].append(
+                {
+                    "id": made,
+                    "body": body["body"],
+                    "user": {"login": me},
+                    "created_at": state.get("now", ""),
+                    "html_url": f"{url}/pull/{pull['number']}#issuecomment-{made}",
+                }
+            )
+            return pull["issue_comments"][-1]
+        return [{"name": label} for label in pull["labels"]]
+    checks = re.fullmatch(r"/commits/([^/]+)/(check-runs|status)", rest_path)
+    if checks:
+        found = repo["checks"].get(checks.group(1)) or {}
+        if checks.group(2) == "check-runs":
+            return {"check_runs": found.get("check_runs", [])}
+        return {"statuses": found.get("statuses", [])}
+    if rest_path == "/actions/runs":
+        return {
+            "workflow_runs": [
+                {key: value for key, value in run.items() if key != "jobs"}
+                for run in repo["runs"].values()
+                if run.get("head_sha") == query.get("head_sha")
+            ]
+        }
+    jobs = re.fullmatch(r"/actions/runs/(\d+)/jobs", rest_path)
+    if jobs:
+        return {"jobs": repo["runs"].get(jobs.group(1), {}).get("jobs", [])}
+    log = re.fullmatch(r"/actions/jobs/(\d+)/logs", rest_path)
+    if log:
+        for run in repo["runs"].values():
+            for job in run.get("jobs", []):
+                if str(job["id"]) == log.group(1):
+                    if "log" not in job:
+                        fail("HTTP 410: the log has expired")
+                    return job["log"]
+        fail("HTTP 404: no job")
+    rerun = re.fullmatch(r"/actions/runs/(\d+)/rerun-failed-jobs", rest_path)
+    if rerun:
+        run = repo["runs"].setdefault(rerun.group(1), {})
+        run["reruns"] = run.get("reruns", 0) + 1
+        return {}
+    compared = re.fullmatch(r"/compare/(.+)", rest_path)
+    if compared and compared.group(1) in (
+        repo.get("compares") or {}
+    ):  # only a comparison a test seeded: any other is still a 404
+        return repo["compares"][compared.group(1)]
+    fail(f"HTTP 404: {method} {path}")
+
+
+def graphql(state, body):
+    query, variables = body["query"], body.get("variables") or {}
+    me = state.get("me") or "human"
+    pulls = [pull for repo in state.get("repos", {}).values() for pull in repo["pulls"].values()]
+    if "reviewThreads" in query:
+        repo = repo_of(state, variables["o"], variables["r"])
+        pull = pull_of(repo, variables["n"])
+        nodes = []
+        for thread in pull["threads"]:
+            comments = [pull["review_comments"][str(cid)] for cid in thread["comments"]]
+            nodes.append(
+                {
+                    "id": thread["id"],
+                    "isResolved": thread["isResolved"],
+                    "isOutdated": bool(thread.get("isOutdated")),
+                    "comments": {
+                        "nodes": [
+                            {"databaseId": row["id"], "url": row["html_url"], "createdAt": "", "author": row["user"]}
+                            for row in comments
+                        ]
+                    },
+                }
+            )
+        return {"data": {"repository": {"pullRequest": {"reviewThreads": {"nodes": nodes}}}}}
+    if "resolveReviewThread" in query:
+        for pull in pulls:
+            for thread in pull["threads"]:
+                if thread["id"] == variables["id"]:
+                    thread["isResolved"] = True
+                    return {"data": {"resolveReviewThread": {"thread": {"isResolved": True}}}}
+        return {"errors": [{"message": "no thread"}]}
+    if "addPullRequestReviewThread" in query:
+        for pull in pulls:
+            for review in pull["reviews"].values():
+                if review["node_id"] == variables["review"]:
+                    cid = new_id(state)
+                    pull["review_comments"][str(cid)] = {
+                        "id": cid,
+                        "body": variables["body"],
+                        "path": variables["path"],
+                        "line": variables["line"],
+                        "user": {"login": me},
+                        "reactions": [],
+                        "html_url": f"#discussion_r{cid}",
+                        "pull_request_review_id": review["id"],
+                    }
+                    review["comments"].append(cid)
+                    pull["threads"].append({"id": f"PRRT_{cid}", "isResolved": False, "comments": [cid]})
+                    return {"data": {"addPullRequestReviewThread": {"thread": {"id": f"PRRT_{cid}"}}}}
+        return {"errors": [{"message": "no pending review"}]}
+    if "markPullRequestReadyForReview" in query:
+        for pull in pulls:
+            if pull["node_id"] == variables["id"]:
+                pull["draft"] = False
+                return {"data": {"markPullRequestReadyForReview": {"pullRequest": {"isDraft": False}}}}
+    return {"errors": [{"message": "unknown query"}]}
+
+
+def transcript(argv):
+    """When a transcript is being recorded (tests/support/forge_transcript.py), every call is kept there, known or not."""
+    if not os.environ.get("COCKPIT_FORGE_TRANSCRIPT"):
+        return
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from forge_transcript import call
+
+    call(argv)
+
+
+def main(argv):
+    transcript(argv)
+    if argv[:1] != ["api"]:
+        fail(f"fake gh: only `gh api` is known, not {' '.join(argv[:2])}", 2)
+    words, method, body = argv[1:], "GET", None
+    path = ""
+    index = 0
+    headers, include = {}, False
+    while index < len(words):
+        word = words[index]
+        if word in ("--method", "-X"):
+            method = words[index + 1]
+            index += 2
+        elif word == "--input":
+            body = json.load(open(words[index + 1], encoding="utf-8"))
+            index += 2
+        elif word == "-i":  # the reply's status line and headers first, as gh prints them
+            include = True
+            index += 1
+        elif word == "-H":
+            name, _, value = words[index + 1].partition(":")
+            headers[name.strip().lower()] = value.strip()
+            index += 2
+        else:
+            path = path or word
+            index += 1
+    state = load()
+    with open(CALLS, "a", encoding="utf-8") as handle:
+        handle.write(
+            json.dumps(
+                {
+                    "method": "POST" if path == "graphql" else method,
+                    "path": path,
+                    "body": body,
+                    **({"if_none_match": headers["if-none-match"]} if "if-none-match" in headers else {}),
+                }
+            )
+            + "\n"
+        )
+    for rule, message in (state.get("fail") or {}).items():
+        want_method, pattern = rule.split(" ", 1)
+        if want_method == ("POST" if path == "graphql" else method) and re.search(
+            pattern, path if path != "graphql" else json.dumps(body)
+        ):
+            fail(message)
+    answer = graphql(state, body) if path == "graphql" else rest(state, method, path, body or {})
+    save(state)
+    if not include:
+        print(json.dumps(answer))
+        return
+    # a conditional read as GitHub answers it: the ETag follows the body, and a match is a 304 that gh exits 1 on
+    etag = 'W/"' + hashlib.sha256(json.dumps(answer, sort_keys=True).encode()).hexdigest() + '"'
+    if headers.get("if-none-match") == etag:
+        print("HTTP/2.0 304 Not Modified\nEtag: " + etag + "\n")
+        fail("gh: HTTP 304")
+    print("HTTP/2.0 200 OK\nEtag: " + etag + "\n\n" + json.dumps(answer))
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])

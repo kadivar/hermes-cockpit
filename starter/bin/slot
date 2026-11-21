@@ -1,0 +1,86 @@
+#!/usr/bin/env python3
+"""Example slot command: a slot is a numbered copy of your stack that one ticket holds. This one only keeps a marker
+file per slot, so the verbs and their answers can be seen working before a real stack is wired.
+
+Contract (pack.yaml):
+  slots:
+    provider: command
+    commands:
+      up:     {argv: [bin/slot, up, "{slot}"]}
+      down:   {argv: [bin/slot, down, "{slot}"]}
+      reset:  {argv: [bin/slot, reset, "{slot}"]}
+      ready:  {argv: [bin/slot, ready, "{slot}"]}
+      status: {argv: [bin/slot, status, "{slot}"]}
+Each verb answers with its exit code:  0 ok   1 failed   2 still working (ask again)   3 a dependency is down.
+`status` also prints one JSON object on stdout, which cockpit reads as data.
+
+  up      start the slot's stack            down    stop it, keep its data
+  reset   wipe the slot's data              ready   is it answering yet?
+  status  describe it as JSON
+
+Replace each branch with your own commands (compose, a process manager, a script). Keep them idempotent: cockpit may
+call a verb twice. SLOT_DEPENDENCY names a file that must exist for `up` to work, to show exit 3.
+"""
+
+import json
+import os
+import sys
+import time
+
+VERBS = ("up", "down", "reset", "ready", "status")
+WARM_SECONDS = float(os.environ.get("SLOT_WARM_SECONDS", "0"))  # how long `up` takes before `ready` answers 0
+
+
+def main(argv) -> int:
+    if len(argv) != 2 or argv[0] not in VERBS or not argv[1].isdigit():
+        print(f"usage: slot {'|'.join(VERBS)} N", file=sys.stderr)
+        return 1
+    verb, number = argv
+    folder = os.environ.get("COCKPIT_STARTER_STATE") or os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), os.pardir, ".cockpit-starter"
+    )
+    os.makedirs(folder, exist_ok=True)
+    marker = os.path.join(folder, f"slot-{number}.up")
+    data = os.path.join(folder, f"slot-{number}.data")
+    started = os.path.getmtime(marker) if os.path.isfile(marker) else 0
+    warming = bool(started) and time.time() - started < WARM_SECONDS
+    if verb == "up":
+        needed = os.environ.get("SLOT_DEPENDENCY", "")
+        if needed and not os.path.exists(needed):
+            print(f"slot {number}: {needed} is not there", file=sys.stderr)
+            return 3
+        if not started:
+            open(marker, "w", encoding="utf-8").write("up\n")
+            open(data, "a", encoding="utf-8").close()
+        return 2 if WARM_SECONDS and not started else 0
+    if verb == "down":
+        if started:
+            os.remove(marker)
+        return 0
+    if verb == "reset":
+        if started:
+            print(f"slot {number}: stop it before its data is wiped (slot down {number})", file=sys.stderr)
+            return 1
+        if os.path.isfile(data):
+            os.remove(data)
+        return 0
+    if verb == "ready":
+        if not started:
+            print(f"slot {number}: not up", file=sys.stderr)
+            return 1
+        return 2 if warming else 0
+    print(
+        json.dumps(
+            {
+                "slot": int(number),
+                "state": "working" if warming else "running" if started else "stopped",
+                "data": os.path.isfile(data),
+                "since": int(started),
+            }
+        )
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv[1:]))

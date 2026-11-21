@@ -1,0 +1,38 @@
+# Exceptions to tests/guards/grep_tokens.py, each one exact line of one file, under the reason it is allowed.
+#
+#   reason: <why this line may stay>
+#   <rule> <path>:<the line, without its indent>
+#
+# A `reason:` line covers the entries below it up to the next blank line. An entry without a reason fails the guard, and
+# so does an entry that no longer matches a line. A real name of an adopter has no exception: it never enters this file.
+
+reason: a command of the fence corpus, where the framework's own command line is the data: tests/contract/fence-corpus.json pins its decision
+process-word scripts/replay_support/commands.txt:php artisan test --filter=ExportTest
+
+reason: the coding tool's own endpoint, header, configuration folder and login key: sent to or matched against the machine, never printed (plan_windows.TOOL)
+vendor kernel/cockpitlib/plan_windows.py:"url": "https://api.anthropic.com/api/oauth/usage",
+vendor kernel/cockpitlib/plan_windows.py:"version_header": "anthropic-beta",
+vendor kernel/cockpitlib/plan_windows.py:"config_env": "CLAUDE_CONFIG_DIR",
+vendor kernel/cockpitlib/plan_windows.py:"config_folder": ".claude",
+vendor kernel/cockpitlib/plan_windows.py:"login_key": "claudeAiOauth",
+
+reason: provider ids as Hermes spells them and the variable a coding tool keeps its token in: matched against the machine's configuration, never printed
+vendor kernel/cockpitlib/usage.py:SUBSCRIPTION_PREFIXES = ("claude-subscription", "claude-code", "claude-max")
+vendor kernel/cockpitlib/usage.py:TOOL_TOKEN_ENV = "CLAUDE_CODE_OAUTH_TOKEN"
+
+reason: program names looked for on PATH and instruction files looked for in a workspace by `cockpit init` and `cockpit migrate`: never printed
+vendor kernel/cockpitlib/scaffold.py:ROUTER_FILES = ("AGENTS.md", "CLAUDE.md")
+vendor kernel/cockpitlib/scaffold.py:CODING_TOOLS = ("cursor-agent", "claude", "codex", "gemini", "opencode", "aider")
+
+reason: the file names coding tools read their instructions from: scripts/gen-pointers writes a pointer to AGENTS.md at each
+vendor scripts/gen-pointers:RULES = ("CLAUDE.md", ".github/copilot-instructions.md")
+vendor scripts/gen-pointers:SKILLS = (".claude/skills/contribute/SKILL.md", ".cursor/skills/contribute/SKILL.md")
+
+reason: a Hermes profile name and a model-id prefix the Desktop matches against what the kernel sends, never printed (packwords.js), and the same two lines in the bundle
+vendor desktop/src/lib/packwords.js:export const TOOL_PROFILE = 'claude'
+vendor desktop/src/lib/packwords.js:export const MODEL_PREFIX = 'claude-'
+vendor desktop/plugin.js:var TOOL_PROFILE = "claude";
+vendor desktop/plugin.js:var MODEL_PREFIX = "claude-";
+
+reason: the Desktop tests' own denylist: the pattern of model names a page must not print
+vendor desktop/test/rules.mjs:const MODEL = /opus|sonnet|haiku|claude-|gpt-|gemini/i

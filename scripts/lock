@@ -1,0 +1,305 @@
+#!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2026 Mohammadreza Kadivar
+# SPDX-License-Identifier: AGPL-3.0-or-later
+"""The Python dependencies as hashed lock files, for installs that are the same everywhere.
+
+  requirements.lock        what the plugin needs to run: `dependencies` in pyproject.toml, resolved
+  requirements-test.lock   the same versions, plus the `test` extra
+  requirements-dev.lock    the `dev` extra alone (the lint and type tools), when pyproject.toml has one: tools that are
+                           run on the code and never shipped; a package it shares with the test set has that version
+
+  scripts/lock             resolve again and write the files (asks the package index; needs pip and the network)
+  scripts/lock --dev       resolve and write requirements-dev.lock alone, against the test lock as it stands
+  scripts/lock --check     offline: the files exist, are well formed, and cover what pyproject.toml declares
+
+Install from one, then the plugin itself without resolving anything:
+  pip install --require-hashes -r requirements-test.lock && pip install --no-deps -e .
+
+Every release file's hash is listed (each wheel and the source archive), so one lock serves every supported Python and
+both supported systems. The set is resolved for each of them, and a package only some of them need carries a marker.
+Standard library and pip only.
+"""
+
+import json
+import os
+import re
+import subprocess
+import sys
+import tempfile
+import tomllib
+import urllib.request
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+RUNTIME, TEST, DEV = "requirements.lock", "requirements-test.lock", "requirements-dev.lock"
+PYTHONS = ("3.11", "3.12", "3.13")
+PLATFORMS = (
+    ("linux", ("manylinux2014_x86_64", "manylinux_2_17_x86_64", "manylinux_2_28_x86_64")),
+    ("darwin", ("macosx_11_0_arm64",)),
+)
+INDEX = "https://pypi.org/pypi/{name}/{version}/json"
+ENTRY = re.compile(r"^([A-Za-z0-9][A-Za-z0-9._-]*)==([^\s;\\]+)(?:\s*;\s*([^\\]+?))?\s*\\?$")
+HASH = re.compile(r"^\s+--hash=sha256:([0-9a-f]{64})\s*\\?$")
+
+
+def canonical(name: str) -> str:
+    return re.sub(r"[-_.]+", "-", name).lower()
+
+
+def declared(root: str = ROOT) -> tuple:
+    """(runtime requirements, test requirements) as pyproject.toml states them."""
+    project = tomllib.load(open(os.path.join(root, "pyproject.toml"), "rb"))["project"]
+    return list(project.get("dependencies") or []), list((project.get("optional-dependencies") or {}).get("test") or [])
+
+
+def tools(root: str = ROOT) -> list:
+    """The `dev` extra as pyproject.toml states it: the tools that check the code. Empty when there is none."""
+    project = tomllib.load(open(os.path.join(root, "pyproject.toml"), "rb"))["project"]
+    return list((project.get("optional-dependencies") or {}).get("dev") or [])
+
+
+def required(requirement: str) -> str:
+    """The canonical name a requirement line asks for."""
+    return canonical(re.split(r"[\s<>=!~;\[(]", requirement.strip(), maxsplit=1)[0])
+
+
+def resolve(requirements: list, python: str, platforms: tuple) -> dict:
+    """{name: version} pip would install for that Python on that system, from wheels, asked without installing."""
+    with tempfile.TemporaryDirectory() as scratch:
+        report = os.path.join(scratch, "report.json")
+        argv = [
+            sys.executable,
+            "-m",
+            "pip",
+            "install",
+            "--dry-run",
+            "--ignore-installed",
+            "--quiet",
+            "--no-input",
+            "--disable-pip-version-check",
+            "--report",
+            report,
+            "--target",
+            os.path.join(scratch, "target"),
+            "--only-binary",
+            ":all:",
+            "--python-version",
+            python,
+            "--implementation",
+            "cp",
+        ]
+        for platform in platforms:
+            argv += ["--platform", platform]
+        done = subprocess.run(argv + list(requirements), capture_output=True, text=True, check=False)
+        if done.returncode != 0:
+            raise SystemExit(
+                f"pip could not resolve for python {python} on {platforms[0]}: {(done.stderr or done.stdout).strip()[-400:]}"
+            )
+        items = json.load(open(report, encoding="utf-8"))["install"]
+    return {canonical(item["metadata"]["name"]): item["metadata"]["version"] for item in items}
+
+
+def _trust():
+    """The certificate authorities pip itself trusts, where this Python was built without the system's."""
+    import ssl
+
+    try:
+        from pip._vendor import certifi
+
+        return ssl.create_default_context(cafile=certifi.where())
+    except ImportError:
+        return ssl.create_default_context()
+
+
+def hashes(name: str, version: str) -> list:
+    """The sha256 of every file the index holds for that release."""
+    with urllib.request.urlopen(INDEX.format(name=name, version=version), timeout=60, context=_trust()) as answer:  # noqa: S310 - the package index's fixed https address
+        files = json.load(answer)["urls"]
+    return sorted({file["digests"]["sha256"] for file in files if not file.get("yanked")})
+
+
+def resolved(requirements: list) -> dict:
+    """{name: (version, marker)} over every supported Python and system. One version each, or the lock cannot be one
+    file; a package only some Pythons or one system needs gets the marker that says which."""
+    seen = {}
+    for python in PYTHONS:
+        for system, platforms in PLATFORMS:
+            for name, version in resolve(requirements, python, platforms).items():
+                seen.setdefault(name, {}).setdefault(version, set()).add((python, system))
+    found = {}
+    every = {(python, system) for python in PYTHONS for system, _platforms in PLATFORMS}
+    for name, versions in sorted(seen.items()):
+        if len(versions) != 1:
+            raise SystemExit(
+                f"{name} resolves to several versions ({', '.join(sorted(versions))}): bound it in pyproject.toml"
+            )
+        ((version, where),) = versions.items()
+        found[name] = (version, marker(where, every))
+    return found
+
+
+def marker(where: set, every: set) -> str:
+    """The environment marker for a package needed in only some of the supported environments; empty for all."""
+    if where == every:
+        return ""
+    pythons, systems = sorted({python for python, _system in where}), sorted({system for _python, system in where})
+    parts = []
+    if len(pythons) != len(PYTHONS):
+        parts.append(" or ".join(f'python_version == "{python}"' for python in pythons))
+    if len(systems) != len(PLATFORMS):
+        parts.append(" or ".join(f'sys_platform == "{system}"' for system in systems))
+    return " and ".join(f"({part})" if " or " in part and len(parts) > 1 else part for part in parts)
+
+
+def render(pins: dict, digests: dict, what: str) -> str:
+    lines = [
+        f"# {what}. Written by scripts/lock from pyproject.toml: do not edit by hand.",
+        "# pip install --require-hashes -r <this file> && pip install --no-deps -e .",
+    ]
+    for name, (version, mark) in sorted(pins.items()):
+        lines.append(f"{name}=={version}" + (f" ; {mark}" if mark else "") + " \\")
+        chosen = digests[(name, version)]
+        lines += [
+            f"    --hash=sha256:{digest}" + (" \\" if index < len(chosen) - 1 else "")
+            for index, digest in enumerate(chosen)
+        ]
+    return "\n".join(lines) + "\n"
+
+
+def parse(text: str) -> dict:
+    """{name: {version, marker, hashes}} of a lock file; a line that is neither an entry, a hash nor a comment raises."""
+    found, last = {}, None
+    for number, line in enumerate(text.splitlines(), 1):
+        if not line.strip() or line.startswith("#"):
+            continue
+        entry, digest = ENTRY.match(line), HASH.match(line)
+        if entry:
+            last = canonical(entry.group(1))
+            found[last] = {"version": entry.group(2), "marker": (entry.group(3) or "").strip(), "hashes": []}
+        elif digest and last:
+            found[last]["hashes"].append(digest.group(1))
+        else:
+            raise ValueError(f"line {number} is neither a pinned requirement nor a hash: {line.strip()[:80]}")
+    return found
+
+
+def problems(root: str = ROOT) -> list:
+    """What is wrong with the two lock files as they stand, read offline."""
+    runtime, test = declared(root)
+    found, locks = [], {}
+    for name in (RUNTIME, TEST):
+        try:
+            locks[name] = parse(open(os.path.join(root, name), encoding="utf-8").read())
+        except OSError:
+            found.append(f"{name} is missing: scripts/lock writes it")
+        except ValueError as exc:
+            found.append(f"{name}: {exc}")
+    if found:
+        return found
+    for name, pins in locks.items():
+        found += [f"{name}: {package} has no hash" for package, pin in pins.items() if not pin["hashes"]]
+        found += [f"{name}: the plugin itself is not a dependency" for package in pins if package == "hermes-cockpit"]
+    found += [
+        f"{RUNTIME}: {required(line)} is declared in pyproject.toml and not locked"
+        for line in runtime
+        if required(line) not in locks[RUNTIME]
+    ]
+    found += [
+        f"{TEST}: {required(line)} is declared in pyproject.toml and not locked"
+        for line in runtime + test
+        if required(line) not in locks[TEST]
+    ]
+    found += [
+        f"{TEST}: {package} is {locks[TEST].get(package, {}).get('version', 'absent')}, and {RUNTIME} has {pin['version']}"
+        for package, pin in locks[RUNTIME].items()
+        if locks[TEST].get(package, {}).get("version") != pin["version"]
+    ]
+    return found + dev_problems(root, locks[TEST])
+
+
+def dev_problems(root: str, test: dict) -> list:
+    """What is wrong with the tools' lock, read offline. A project without a `dev` extra has no such file to miss."""
+    wanted = tools(root)
+    if not wanted:
+        return []
+    try:
+        pins = parse(open(os.path.join(root, DEV), encoding="utf-8").read())
+    except OSError:
+        return [f"{DEV} is missing: scripts/lock --dev writes it"]
+    except ValueError as exc:
+        return [f"{DEV}: {exc}"]
+    found = [f"{DEV}: {package} has no hash" for package, pin in pins.items() if not pin["hashes"]]
+    found += [
+        f"{DEV}: {required(line)} is declared in pyproject.toml and not locked"
+        for line in wanted
+        if required(line) not in pins
+    ]
+    found += [
+        f"{DEV}: {package} is {pin['version']}, and {TEST} has {test[package]['version']}"
+        for package, pin in pins.items()
+        if package in test and test[package]["version"] != pin["version"]
+    ]
+    return found
+
+
+def write_dev(root: str, test: dict) -> list:
+    """requirements-dev.lock: the tools and what they need, each shared package at the version the test set has."""
+    wanted = tools(root)
+    if not wanted:
+        return []
+    shared = [f"{name}=={test[name]}" for name in sorted(resolved(wanted)) if name in test]
+    pins = resolved(wanted + shared)
+    digests = {(name, version): hashes(name, version) for name, (version, _mark) in pins.items()}
+    what = "What the lint and type checks need: tools that are run on the code, never shipped"
+    open(os.path.join(root, DEV), "w", encoding="utf-8").write(render(pins, digests, what))
+    return [f"{DEV}: {len(pins)} packages"]
+
+
+def write(root: str = ROOT) -> list:
+    runtime, test = declared(root)
+    both = resolved(runtime + test)
+    alone = resolved(runtime)
+    # the runtime set is the test set's own choice of versions, so the suite runs what an installation runs
+    pins = {name: both[name] for name in alone}
+    digests = {(name, version): hashes(name, version) for name, (version, _mark) in both.items()}
+    for name, chosen, what in (
+        (RUNTIME, pins, "What the plugin needs to run"),
+        (TEST, both, "What the plugin and its tests need"),
+    ):
+        open(os.path.join(root, name), "w", encoding="utf-8").write(render(chosen, digests, what))
+    told = [f"{RUNTIME}: {len(pins)} packages", f"{TEST}: {len(both)} packages"]
+    return told + write_dev(root, {name: version for name, (version, _mark) in both.items()})
+
+
+def main(argv, root: str = ROOT) -> int:
+    if argv == ["--check"]:
+        found = problems(root)
+        for line in found:
+            print(line, file=sys.stderr)
+        print(
+            "lock files: "
+            + (
+                f"{len(found)} problem(s): scripts/lock writes them again"
+                if found
+                else "well formed, and they cover pyproject.toml"
+            )
+        )
+        return 1 if found else 0
+    if argv == ["--dev"]:
+        try:
+            test = parse(open(os.path.join(root, TEST), encoding="utf-8").read())
+        except (OSError, ValueError) as exc:
+            print(f"{TEST} cannot be read ({exc}): scripts/lock writes every file", file=sys.stderr)
+            return 1
+        for line in write_dev(root, {name: pin["version"] for name, pin in test.items()}):
+            print(line)
+        return 0
+    if argv:
+        print(__doc__.strip(), file=sys.stderr)
+        return 2
+    for line in write(root):
+        print(line)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv[1:]))

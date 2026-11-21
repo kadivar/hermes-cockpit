@@ -1,0 +1,7 @@
+#!/bin/sh
+# SPDX-FileCopyrightText: 2026 Mohammadreza Kadivar
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# Fixture perf hook: records the perf file it was given; ACME_PERF_FAIL fails it.
+[ -n "$ACME_PERF_FAIL" ] && { echo "acme perf board unreachable" >&2; exit 4; }
+printf "acme-perf|%s\n" "$1" >> "$COCKPIT_ROOT/perf.log"

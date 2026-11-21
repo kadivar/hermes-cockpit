@@ -1,0 +1,8 @@
+#!/bin/sh
+# SPDX-FileCopyrightText: 2026 Mohammadreza Kadivar
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# Fixture verify command: the pushed range may not add a line ending in a space.
+base=$1; sha=$2
+if git diff "$base...$sha" | grep -q '^+.* $'; then echo "north fmt: trailing space in $base...$sha"; exit 1; fi
+echo "north fmt: clean"

@@ -1,0 +1,141 @@
+# SPDX-FileCopyrightText: 2026 Mohammadreza Kadivar
+# SPDX-License-Identifier: AGPL-3.0-or-later
+name: respond
+# The first response on a pull request: one comment with the result of every check, kept up to date, and a block a
+# contributor's coding assistant can read. This workflow holds a token that writes to pull requests, so it NEVER
+# checks out or runs the pull request's code. It reads the result files CI uploaded as data, takes nothing from them
+# unchecked, and decides the owner-review label from the forge's own list of changed files.
+on:
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
+permissions: {}
+concurrency:
+  group: respond-${{ github.event.workflow_run.head_repository.full_name }}-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: true
+jobs:
+  respond:
+    if: github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      actions: read
+    steps:
+      # a run that stopped before the check has no result file: the comment then says so
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        continue-on-error: true
+        with:
+          pattern: check-result-*
+          path: results
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+      - uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        with:
+          script: |
+            const fs = require('fs')
+            const path = require('path')
+            const MARK = '<!-- cockpit-check v1 -->'
+            const IDS = ['env', 'generated', 'tokens', 'structure', 'security-surface', 'tests', 'coverage', 'dashboard', 'desktop']
+            const STATUS = ['pass', 'fail', 'skip']
+            // what only the owner may loosen, and what produces the result this comment reports
+            const OWNER_ONLY = ['kernel/cockpitlib/egress.py', 'kernel/cockpitlib/fence.py', 'kernel/cockpitlib/fence_markers.txt',
+              'kernel/cockpitlib/setup.py', 'hooks/egress.py', 'tests/contract/doctor-security.json', 'scripts/check', 'tests/conftest.py']
+            const OWNER_ONLY_UNDER = ['.github/']
+            const LABEL = 'needs-owner'
+            const run = context.payload.workflow_run
+            const { owner, repo } = context.repo
+
+            // text from the result file is the pull request's own words: printable characters only, no markup, no mention
+            const clean = (value, most) => String(value == null ? '' : value).replace(/[^\x20-\x7E·]/g, ' ')
+              .replace(/[|`<>@\[\]\\]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, most)
+            const cell = (name) => /^check-result-[A-Za-z0-9._-]{1,60}$/.test(name) ? name.slice('check-result-'.length) : ''
+
+            const read = (folder) => {
+              let told
+              try {
+                const file = path.join('results', folder, 'check-result.json')
+                if (fs.statSync(file).size > 2000000) return null
+                told = JSON.parse(fs.readFileSync(file, 'utf8'))
+              } catch (error) { return null }
+              if (!told || told.schema !== 1 || !Array.isArray(told.checks)) return null
+              const checks = []
+              for (const row of told.checks.slice(0, 20)) {
+                if (!row || !IDS.includes(row.id) || !STATUS.includes(row.status) || checks.some((had) => had.id === row.id)) continue
+                const failures = (Array.isArray(row.failures) ? row.failures : []).slice(0, 10).map((item) => ({
+                  test: clean(item && item.test, 200), file: clean(item && item.file, 200),
+                  line: item && Number.isInteger(item.line) && item.line > 0 ? item.line : null, message: clean(item && item.message, 300),
+                }))
+                checks.push({ id: row.id, status: row.status, summary: clean(row.summary, 200), failures, rerun: `scripts/check --only ${row.id}` })
+              }
+              return { verdict: checks.length && !checks.some((row) => row.status === 'fail') ? 'pass' : 'fail', checks }
+            }
+
+            // the pull request is found from the run's own event, never from a file the run wrote
+            const head = `${run.head_repository.owner.login}:${run.head_branch}`
+            const open = await github.paginate(github.rest.pulls.list, { owner, repo, state: 'open', head, per_page: 100 })
+            const pull = open.find((item) => item.head.sha === run.head_sha)
+            if (!pull) { core.info(`no open pull request at ${run.head_sha}`); return }
+
+            const cells = []
+            let folders = []
+            try { folders = fs.readdirSync('results').sort() } catch (error) { folders = [] }
+            for (const folder of folders.slice(0, 20)) {
+              const name = cell(folder)
+              const told = name && read(folder)
+              if (told) cells.push({ cell: name, ...told })
+            }
+
+            const files = await github.paginate(github.rest.pulls.listFiles, { owner, repo, pull_number: pull.number, per_page: 100 })
+            const touched = files.map((item) => item.filename).concat(files.map((item) => item.previous_filename).filter(Boolean))
+            const surface = [...new Set(touched.filter((name) => OWNER_ONLY.includes(name) || OWNER_ONLY_UNDER.some((under) => name.startsWith(under))))].sort()
+
+            const green = run.conclusion === 'success' && cells.length > 0 && cells.every((item) => item.verdict === 'pass')
+            const result = { schema: 1, sha: run.head_sha, verdict: green ? 'pass' : 'fail', run: run.html_url,
+              security_surface: surface, cells }
+            const encode = (value) => JSON.stringify(value, null, 1).replace(/[<>`@&]/g, (char) => '\\u' + char.charCodeAt(0).toString(16).padStart(4, '0'))
+            let block = encode(result)
+            if (block.length > 45000) {
+              for (const item of result.cells) for (const row of item.checks) row.failures = row.failures.slice(0, 2)
+              result.truncated = true
+              block = encode(result)
+            }
+            if (block.length > 45000) {
+              for (const item of result.cells) for (const row of item.checks) row.failures = []
+              block = encode(result)
+            }
+
+            const lines = [`**CHECK ${result.verdict}** at ${run.head_sha.slice(0, 12)} · [the run](${run.html_url})`, '']
+            if (!cells.length) {
+              lines.push(`The run ended (${clean(run.conclusion, 20)}) without a check result: it stopped before \`scripts/check\` could write one. Open the run for its log.`)
+            } else {
+              lines.push(`| check | ${cells.map((item) => clean(item.cell, 40)).join(' | ')} |`, `|---|${cells.map(() => '---').join('|')}|`)
+              for (const id of IDS) {
+                const row = cells.map((item) => (item.checks.find((had) => had.id === id) || {}).status || '·')
+                if (row.some((status) => status !== '·')) lines.push(`| \`${id}\` | ${row.map((status) => status === 'fail' ? '**fail**' : status).join(' | ')} |`)
+              }
+              const failed = []
+              for (const item of cells) for (const row of item.checks) if (row.status === 'fail') {
+                failed.push(`- \`${row.id}\` on ${clean(item.cell, 40)}: ${row.summary}`)
+                for (const told of row.failures.slice(0, 5)) failed.push(`  - ${told.test}${told.file ? ` (${told.file}${told.line ? ':' + told.line : ''})` : ''}: ${told.message}`)
+              }
+              if (failed.length) {
+                const ids = [...new Set(cells.flatMap((item) => item.checks.filter((row) => row.status === 'fail').map((row) => row.id)))]
+                lines.push('', 'What failed:', ...failed.slice(0, 40), '', `Run it yourself: \`scripts/check --only ${ids.join(',')}\``)
+              }
+            }
+            if (surface.length) {
+              lines.push('', `This change touches files only the owner approves (${surface.map((name) => '`' + clean(name, 120) + '`').join(', ')}): it waits for the owner's review.`)
+            }
+            lines.push('', 'A coding assistant can read the block below, correct the pull request and push again; this comment follows.',
+              '', MARK, '```json', block, '```')
+            const body = lines.join('\n')
+
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: pull.number, per_page: 100 })
+            const mine = comments.find((item) => item.user && item.user.type === 'Bot' && item.user.login === 'github-actions[bot]' && item.body && item.body.includes(MARK))
+            if (mine) await github.rest.issues.updateComment({ owner, repo, comment_id: mine.id, body })
+            else await github.rest.issues.createComment({ owner, repo, issue_number: pull.number, body })
+
+            if (surface.length) {
+              try { await github.rest.issues.addLabels({ owner, repo, issue_number: pull.number, labels: [LABEL] }) }
+              catch (error) { core.warning(`the ${LABEL} label could not be set (it must exist in the repository): ${error.message}`) }
+            }

@@ -1,0 +1,8 @@
+#!/bin/sh
+# SPDX-FileCopyrightText: 2026 Mohammadreza Kadivar
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# Fixture account maker for one site: a new password per call; FAIL_STAFF makes it refuse.
+[ -n "$FAIL_STAFF" ] && { echo "north staff api down" >&2; exit 4; }
+count=$(cat "$COCKPIT_ROOT/north-staff" 2>/dev/null || echo 0); count=$((count + 1)); echo "$count" > "$COCKPIT_ROOT/north-staff"
+printf '{"password":"north-%s-%s-%s"}\n' "$2" "$COCKPIT_ACCOUNT_ACTION" "$count"

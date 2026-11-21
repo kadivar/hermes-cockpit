@@ -1,0 +1,71 @@
+# SPDX-FileCopyrightText: 2026 Mohammadreza Kadivar
+# SPDX-License-Identifier: AGPL-3.0-or-later
+name: ci
+on:
+  push:
+  pull_request:
+# The job reads the repository and nothing else.
+permissions:
+  contents: read
+# One group per branch, shared by the push run and the pull_request run. A later push cancels the older run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+jobs:
+  test:
+    name: test (${{ matrix.os }}, python ${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        python: ["3.11", "3.12", "3.13"]
+        include:
+          # the coverage gate is counted once, on the cell every other tool of the run is pinned to
+          - {os: ubuntu-latest, python: "3.12", coverage: true}
+          - {os: macos-latest, python: "3.12"}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          # a pull request's run is its merge commit: one parent back is the base the security-surface step compares with
+          fetch-depth: 2
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: ${{ matrix.python }}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+      # the failure-video tests run the real recorder; without it they are skipped and their lines are not counted
+      - if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - if: runner.os == 'macOS'
+        run: brew install ffmpeg
+      # the locked versions, every file checked against its recorded hash; then the plugin itself, resolving nothing
+      - run: pip install --require-hashes -r requirements-test.lock && pip install --no-deps -e .
+      # the tools that read the code (the linter, the formatter, the type checker), each file checked the same way:
+      # they are run here and never shipped, so they have a lock of their own
+      - run: pip install --require-hashes -r requirements-dev.lock
+      # a bare PATH starts the runner's python3, which has no PyYAML; the entry points re-exec this venv
+      - run: python -m venv .venv --system-site-packages
+      # everything else is the one command a contributor runs: the Desktop's packages, the generated files, the token
+      # scan, the structural tests, the suite, the pages and the bundle, cheapest first
+      - run: scripts/check --json
+        env:
+          # the coverage gate is counted on one cell; the others run the suite without it
+          CHECK_COVERAGE: ${{ matrix.coverage && '1' || '0' }}
+          CHECK_BASE: ${{ github.event_name == 'pull_request' && 'HEAD^1' || '' }}
+          # a contributor without the dev extra gets a skip and the line that installs it; here the step must run
+          CHECK_LINT: required
+          CHECK_TYPES: required
+          # the names of the places this tool was first used in are a secret, never a file of the repository: the
+          # token step writes them to a file of this run and hands it to the guard. A push to the default branch fails
+          # without the secret; a pull request from a fork has no secrets and runs with the committed lists alone
+          EXTRA_TOKENS: ${{ secrets.EXTRA_TOKENS }}
+          CHECK_EXTRA_TOKENS: ${{ github.event_name == 'push' && github.ref_name == github.event.repository.default_branch && 'required' || 'optional' }}
+      # the result as data, for the workflow that answers on the pull request (it never runs this code)
+      - if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: check-result-${{ matrix.os }}-${{ matrix.python }}
+          path: check-result.json
+          if-no-files-found: ignore

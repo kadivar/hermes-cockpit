@@ -1,0 +1,15 @@
+# SPDX-FileCopyrightText: 2026 Mohammadreza Kadivar
+# SPDX-License-Identifier: AGPL-3.0-or-later
+terminal_deny:
+  - "\\bfleet\\s+(drain|teardown)\\b"
+production_hosts:
+  - "app\\.north\\.example"
+sacred: []
+infra_paths: []
+destructive_http: ["qa\\.north\\.test"]
+mcp_allow: ["mcp__fleet__deploy_*"]
+role_deny:
+  reviewer: ["\\bfleet\\s+status\\b"]
+write_roots:
+  gatekeeper: ["{root}/north-notes"]
+local_domains: ["\\.north\\.lan\\b"]

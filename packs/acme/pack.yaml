@@ -1,0 +1,234 @@
+# SPDX-FileCopyrightText: 2026 Mohammadreza Kadivar
+# SPDX-License-Identifier: AGPL-3.0-or-later
+name: acme
+board: acme
+ticket_pattern: "^[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+$"
+branch_prefix: work
+commit_trailer: "[{ticket}]"
+base_branch: main
+workspace_branch: master
+records_dir: hermes
+human_browser_port: 9222
+seats:
+  slots: 1
+  intake: 1
+  reviewer: 1
+  analyst: 1
+budget:
+  monthly_usd: 0
+  plan_window_max_pct: 85
+shared_chrome_hours: 4
+grooming:
+  - {name: push, intent: push-branch}
+  - retarget
+  - rename
+  - {name: labels, intent: pr-edit, field: add_labels}
+  - {name: approval, intent: pr-review-submit, event: APPROVE}
+  - ticket
+bump_sequence:
+  stages:
+    - {name: ticket, intent: tracker-create}
+    - {name: retarget, intent: pr-edit, field: [base, title_append]}
+    - {name: push, intent: push-branch}
+    - {name: approve, intent: pr-review-submit, event: APPROVE}
+    - {name: labels, intent: pr-edit, field: add_labels}
+  barrier: push
+advisories:
+  sources: [osv, kev, nodejs]
+  alert: {high_days: 7}
+  minutes: 20
+working_days: [0, 1, 2, 3, 4]
+hours:
+  standup: 11
+  bumps: "09:45"
+  digest: 9
+  perf: 9
+  export: 12
+  ci_settle_minutes: 5
+  standup_window: "10:30"
+  no_ci_minutes: 20
+refused:
+  hosts: ["secret.acme.test"]
+  commands: []
+allowed:
+  reads: ["git status"]
+stores:
+  - name: acme-db
+    kind: copy
+    minimum: 1
+    names: [app]
+    present: true
+    capacity: 1
+    have: [app]
+privileged:
+  environment: lab
+  label: acme-admin
+  scope: human
+logins:
+  scope: lane
+  accounts: accounts.yaml
+  shared:
+    - origin: https://app.acme.test
+      email: shared@acme.test
+      readers: [tester]
+notify:
+  standup: ["true"]
+  ci_green: ["bin/notify", "{event}", "{key}"]
+  ready_for_review: ["bin/notify", "{event}", "{ticket}"]
+  updated_after_review: ["bin/notify", "{event}", "{ticket}"]
+  pr_comments: ["bin/notify", "{event}", "{ticket}"]
+skills_dir: "@skills"
+slot_provider: none
+runtime: worktree
+slot_browser: ["true"]
+dev_servers:
+  - ["true"]
+agent:
+  home: homes/acme
+providers:
+  judgment:
+    hermes_provider: fixture-a
+    model: fixture-large
+  worker:
+    hermes_provider: fixture-b
+    model: fixture-fast
+  advisor:
+    hermes_provider: fixture-a
+    model: fixture-large
+  coding:
+    command: ["true"]
+    display_name: Chat
+    transcript_glob: "{root}/transcripts/{ticket}/*.jsonl"
+roles:
+  intake: judgment
+  worker: worker
+  tester: worker
+  reviewer: judgment
+  analyst: worker
+  gatekeeper: judgment
+  advisor: advisor
+board_workdir: "{workspace}"
+testflow:
+  never_write: ["/billing/"]
+  run_dir: "pass-{n:02d}"
+  title: "Test Run"
+  banners: {ok: "Tested and Ok", not_ok: "Tested and Not Ok"}
+  evidence_dir: evidences
+  plan_file: test-scenarios.md
+  review_mark: "ready for your review"
+finding_labels: [B, CS, Q, PP, NTH]
+desktop:
+  diff_held_suffix: "-wt"
+standup:
+  chat_file: standup.wall
+  sections:
+    testings: "Testings:"
+    developments: "Developments:"
+    opened: "Opened PRs:"
+    reviews: "PR reviews:"
+    created: "Tickets created:"
+    waiting: "Waiting on colleagues:"
+slots:
+  provider: command
+  ports: {app: 8100, browser: 9300}
+  state_dir: "{root}/acme-slots/{slot}"
+  data_dir: "{root}/acme-data/{slot}"
+  lock_wait_seconds: 2
+  idle_minutes: 45
+  exec_refuse: ["\\bledger\\s+wipe\\b"]
+  commands:
+    up: {argv: [bin/slot, up, "{slot}", "{ticket}", "{port.app}"]}
+    down: {argv: [bin/slot, down, "{slot}"]}
+    reset: {argv: [bin/slot, reset, "{slot}"]}
+    ready: {argv: [bin/slot, ready, "{slot}"]}
+    status: {argv: [bin/slot, status, "{slot}", "{port.app}"]}
+    exec: {argv: [bin/slot, exec, "{slot}", "{args...}"], passthrough: true}
+    test: {argv: [bin/slot, test, "{slot}", "{args...}"], passthrough: true}
+    login: {argv: [bin/slot, login, "{slot}", "{ticket}", "{args...}"], passthrough: true, who: human}
+    ledger-check: {argv: [bin/slot, ledger-check, "{slot}", "{data_dir}"], who: lane}
+  session:
+    open: [bin/slot, session-open, "{slot}", "{ticket}"]
+    close: [bin/slot, session-close, "{slot}", "{ticket}"]
+  toggles:
+    mail: {on: [bin/slot, mail, "{slot}", "on"], off: [bin/slot, mail, "{slot}", "off"], status: [bin/slot, mail, "{slot}", "status"]}
+plugins:
+  ledger-view: {pages: 3}
+extra_plugins:
+  - name: ledger-view
+    path: plugins/ledger-view
+    where: root
+mcp_servers:
+  docs:
+    command: [fixture-docs-mcp, --stdio]
+    env_keys: [DOCS_TOKEN]
+    include_tools: [search, get_page]
+seat_config:
+  _common:
+    memory_seed: memory.md
+    env:
+      ACME_REGION: eu-1
+    skills:
+      - name: house-style
+        path: seat-skills/house-style
+    soul: souls/common.md
+    hermes:
+      agent:
+        max_turns: 120
+      approvals:
+        deny: ["vaultctl *"]
+  reviewer:
+    soul: souls/reviewer.md
+    mcp: [docs]
+    hermes:
+      compression:
+        enabled: true
+  root:
+    soul: souls/root.md
+helpers: helpers.yaml
+tracker:
+  url: https://jira.acme.test
+  project: TASK
+  kind: jira   # Jira's REST API with the auth_env credentials; omit for Hermes's Jira connector
+  auth_env: [ACME_TRACKER_EMAIL, ACME_TRACKER_TOKEN]
+  issue_type: Task
+  summary_max: 72
+forge:
+  org: acme
+  human_login: acme-dev
+  bots: [acme-ci-bot]
+  mention_tags: ["@acme-dev"]
+  bump_batch: "{project}-DEPS-{week}"
+  review_labels:
+    REQUEST_CHANGES: {add: [needs work], remove: [needs review]}
+perf:
+  command: ["bin/perf", "{record}"]
+export:
+  keep: 3
+  commands:
+    - ["bin/archive", "notes", "{records}"]
+    - ["bin/archive", "plans", "{records}"]
+watchers:
+  limits:
+    perf-sync: {stale_minutes: 1500}
+  base:
+    noise: ["docs/*.md", "*.lock"]
+  ci:
+    failed_states: [cancelled]
+environments:
+  - {name: local, slot: true}
+  - {name: staging, slot: false, origins: {app: "https://app.acme.test"}}
+capacity:
+  test_needs_slot: false
+  audit_blocks_tests: true
+prompts:
+  plan-format: prompts/plan.md
+  handover: prompts/plan.md
+advisor:
+  command: ["bin/advise", "{query_file}", "{checkpoint}"]
+  prompt: prompts/advisor.md
+  max_calls: 3
+  checkpoints:
+    C0: {answers: [APPROVED, DEVIATES]}
+    C2: {answers: [APPROVED, CHANGES]}
+awake:
+  command: ["bin/stay-up", "-t", "150"]

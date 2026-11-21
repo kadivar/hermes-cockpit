@@ -1,0 +1,176 @@
+# The command corpus a replay asks every seat's fence about. One shell line each; a line is known by its number, so
+# lines are only ever appended. {host} is asked once for each production host the pack's own egress.yaml lists; {org},
+# {workspace}, {home} (the runtime's home), {wt} (the worktrees) and {volumes} are the sandbox's.
+
+# pushes and remotes
+git push
+git push origin main
+git push --force origin work/TASK-100
+git push --force-with-lease origin work/TASK-100
+git push origin HEAD:refs/heads/main
+git -C {wt}/TASK-100/api push origin work/TASK-100
+cd {wt}/TASK-100/api && git push
+git remote add mirror https://example.test/{org}/api.git
+git remote set-url origin https://example.test/{org}/api.git
+git config remote.origin.pushurl https://example.test/{org}/api.git
+git config core.hooksPath /dev/null
+git commit -m "TASK-100: the fix" --no-verify
+git commit -n -m "TASK-100: the fix"
+HUSKY=0 git commit -m "TASK-100: the fix"
+git commit -m "TASK-100: the fix"
+git commit --amend --no-edit
+
+# forge CLI writes
+gh pr create --title "TASK-100: the fix" --body "done"
+gh pr comment 7 --body "done"
+gh pr review 7 --approve
+gh pr edit 7 --add-label ready
+gh pr merge 7 --squash
+gh pr ready 7
+gh pr close 7
+gh pr reopen 7
+gh api repos/{org}/api/pulls/7/comments -f body=done
+gh api repos/{org}/api/issues/7/labels --method POST -f "labels[]=ready"
+gh api repos/{org}/api/pulls/7 -X PATCH -f title=new
+gh api graphql -f query='mutation { resolveReviewThread(input: {threadId: "T1"}) { thread { isResolved } } }'
+gh release create v1.0.0
+gh workflow run ci.yml
+gh run rerun 100
+curl -X POST https://api.github.com/repos/{org}/api/pulls -d '{"title": "x"}'
+curl -X PATCH -H "Authorization: Bearer $GH_TOKEN" https://api.github.com/repos/{org}/api/pulls/7 -d '{"title": "x"}'
+curl -X DELETE https://api.github.com/repos/{org}/api/git/refs/heads/main
+
+# forge reads
+gh pr view 7
+gh pr view 7 --json title,body
+gh pr list --state open
+gh pr diff 7
+gh pr checks 7
+gh run view 100 --log-failed
+gh api repos/{org}/api/pulls/7
+gh api repos/{org}/api/pulls/7/comments
+gh api user
+curl https://api.github.com/repos/{org}/api/pulls/7
+
+# vault-looking paths and secrets
+cat {home}/vault/passwords.json
+cat {home}/vault.gpg
+cat ~/.hermes/vault/passwords.json
+less {home}/.env
+cat ~/.ssh/id_ed25519
+cat ~/.aws/credentials
+cat ~/.netrc
+cat .env
+cat {workspace}/.env
+gpg --decrypt {home}/vault/passwords.gpg
+gpg --export-secret-keys
+security find-generic-password -s forge -w
+printenv GH_TOKEN
+env | grep TOKEN
+ls {volumes}
+cat {volumes}/slot-1/data.sql
+cockpit vault get staging-admin
+cockpit vault list
+hermes vault show staging-admin
+cockpit slot claim 1
+cockpit publish TASK-100/push-branch-1
+cockpit outbox endorse TASK-100/push-branch-1
+
+# production hosts
+curl https://{host}/
+curl -X POST https://{host}/api/users -d '{"name": "x"}'
+curl -X DELETE https://{host}/api/users/1
+ssh deploy@{host}
+scp build.tar.gz deploy@{host}:/srv/app
+mysql -h {host} -u root -e "select 1"
+psql "postgres://app@{host}/app" -c "select 1"
+ping -c 1 {host}
+open https://{host}/login
+
+# containers and infrastructure
+docker ps
+docker compose down -v
+docker exec -it main-db mysql -e "drop database app"
+kubectl get pods
+kubectl delete pod api-1
+terraform apply -auto-approve
+helm upgrade api ./chart
+
+# wide searches and deletes
+grep -r token /
+find / -name "*.pem"
+find ~ -name "*.key"
+rm -rf /
+rm -rf ~
+rm -rf {workspace}
+sudo rm -rf /var/lib
+
+# writes outside and inside a checkout
+echo done > {wt}/TASK-100/api/notes.txt
+echo done > {workspace}/notes.txt
+echo done > /etc/hosts
+sed -i '' 's/a/b/' {wt}/TASK-100/api/README
+tee {home}/config.yaml < /dev/null
+cp build.tar.gz /tmp/build.tar.gz
+python3 -c "open('/etc/passwd').read()"
+
+# plain reads
+ls
+ls -la {wt}
+pwd
+git status
+git log --oneline -5
+git diff HEAD~1
+git -C {wt}/TASK-100/api status
+git fetch origin
+git pull --rebase origin main
+cat README.md
+grep -rn "TODO" src
+rg "def main" kernel
+npm test
+php artisan test --filter=ExportTest
+pytest -q tests/test_export.py
+curl https://example.test/health
+cockpit update check
+cockpit update apply --no-restart
+cockpit update rollback --to abc1234
+cockpit update rehome https://example.test/team/cockpit.git --branch main
+cockpit update rehome https://example.test/team/cockpit.git --dry-run
+cockpit update rehome --undo
+
+# a pack's allowed reads, alone and beside what the kernel and the pack refuse
+git diff
+git status && git diff
+git status && git push origin main
+git diff && git push origin main
+git status; curl https://{host}/
+git diff | gh pr create --title "TASK-100: the fix" --body "done"
+git status && git status
+
+# remotes and git settings behind git's own options
+git -C {wt}/TASK-100/api remote -v
+git -C {wt}/TASK-100/api remote get-url origin
+git -C {wt}/TASK-100/api remote show origin
+git -C {wt}/TASK-100/api remote add mirror https://example.test/{org}/api.git
+git -C {wt}/TASK-100/api remote set-url origin https://example.test/{org}/api.git
+git -C {wt}/TASK-100/api remote rename origin old
+git -C {wt}/TASK-100/api remote remove origin
+git remote -v
+git remote show origin
+git -C {wt}/TASK-100/api config --get remote.origin.url
+git -C {wt}/TASK-100/api config --list
+git config --get remote.origin.pushurl
+git -C {wt}/TASK-100/api config user.name "A Lane"
+git -C {wt}/TASK-100/api config remote.origin.pushurl https://example.test/{org}/api.git
+git -C {wt}/TASK-100/api config --worktree --unset remote.origin.pushurl
+git -C {wt}/TASK-100/api config --add remote.origin.pushurl https://example.test/{org}/api.git
+git -C {wt}/TASK-100/api config --replace-all remote.origin.url https://example.test/{org}/api.git
+git -C {wt}/TASK-100/api config url.https://example.test/.insteadOf https://forge.example.test/
+git config --global url.https://example.test/.pushInsteadOf https://forge.example.test/
+git -C {wt}/TASK-100/api config core.sshCommand "ssh -i /tmp/key"
+git config alias.p push
+git -C {wt}/TASK-100/api config --unset alias.p
+git -C {wt}/TASK-100/api config core.hooksPath /dev/null
+git -c alias.p=push p origin main
+git -c core.sshCommand=ssh -C {wt}/TASK-100/api fetch origin
+git -C {wt}/TASK-100/api send-pack origin HEAD:refs/heads/main

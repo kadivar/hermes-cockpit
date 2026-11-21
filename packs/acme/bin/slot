@@ -1,0 +1,21 @@
+#!/bin/sh
+# SPDX-FileCopyrightText: 2026 Mohammadreza Kadivar
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# Fixture slot runtime: one line per call in $COCKPIT_ROOT/acme-slot.log; marker files steer its answers.
+verb=$1; slot=$2; shift 2
+echo "$verb slot=$slot env=$COCKPIT_SLOT ticket=$COCKPIT_TICKET owner=$COCKPIT_OWNER lane=$COCKPIT_LANE args=$*" >> "$COCKPIT_ROOT/acme-slot.log"
+mark="$COCKPIT_ROOT/acme-slot-$slot"
+case "$verb" in
+  up) [ -f "$mark.fail" ] && { echo "acme db would not start" >&2; exit 1; }; exit 0;;
+  down|reset) exit 0;;
+  ready) [ -f "$mark.warming" ] && exit 2; [ -f "$mark.dependency" ] && { echo "acme db is down" >&2; exit 3; }; echo ready;;
+  status) printf '{"db": "up", "app_port": %s}\n' "$1";;
+  exec) echo "ran: $*";;
+  test) echo "acme suite: $*"; [ -f "$mark.red" ] && exit 1; exit 0;;
+  login) printf '{"user": "%s", "password": "demo-acme-%s"}\n' "$2" "$slot";;
+  ledger-check) echo "ledger ok in $1";;
+  mail) echo "$1" > "$mark.mail"; cat "$mark.mail";;
+  probe) [ -f "$mark.empty" ] && { echo '{"present": true, "have": []}'; exit 0; }; echo '{"present": true, "have": ["app"]}';;
+  capacity) [ -f "$mark.empty" ] && { echo 0; exit 0; }; echo 2;;
+esac

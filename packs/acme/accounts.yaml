@@ -1,0 +1,12 @@
+# SPDX-FileCopyrightText: 2026 Mohammadreza Kadivar
+# SPDX-License-Identifier: AGPL-3.0-or-later
+command: [bin/accounts]
+accounts:
+  - origin: https://app.acme.test
+    identifier: qa-one@acme.test
+    owner: tester-1
+    renew_days: 30
+  - origin: https://portal.acme.test
+    identifier: desk@acme.test
+    readers: [reviewer]
+    totp: true

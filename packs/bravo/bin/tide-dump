@@ -1,0 +1,10 @@
+#!/bin/sh
+# SPDX-FileCopyrightText: 2026 Mohammadreza Kadivar
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# Fixture exporter for the invented "tide" pipeline: reads $COCKPIT_ROOT/tide-logins.jsonl.
+file="$COCKPIT_ROOT/tide-logins.jsonl"
+if [ "$1" = count ]; then [ -f "$file" ] && grep -c . "$file" || echo 0; exit 0; fi
+[ -n "$TIDE_DUMP_FAIL" ] && exit 4
+[ -f "$file" ] && cat "$file"
+exit 0

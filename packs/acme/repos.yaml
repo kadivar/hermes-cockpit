@@ -1,0 +1,20 @@
+# SPDX-FileCopyrightText: 2026 Mohammadreza Kadivar
+# SPDX-License-Identifier: AGPL-3.0-or-later
+repos:
+  - name: api
+    path: repos/api
+    skills: [pr-review]
+    copy: [.env.sample]
+    hooks_path: .githooks
+    worktree_files: [{source: files/api.env, target: .env.worktree}]
+    after_add: [[sh, -c, "echo acme > .after-add"]]
+    branch_suffix_when_held: -lane
+    failures: ["^FAIL (\\S+)"]
+    base: main
+    gates: ["true"]
+    verify: [["{pack}/bin/lint", "{files}"]]
+  - name: web
+    path: repos/web
+    base: main
+    gates: ["true"]
+    copy: []

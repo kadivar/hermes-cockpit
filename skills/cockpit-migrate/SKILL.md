@@ -1,0 +1,24 @@
+---
+name: cockpit-migrate
+description: Replace an older pipeline with cockpit. Snapshot first. Draft a pack. Wait for go. Then cockpit setup.
+---
+
+# Migrate
+
+The path for replacing an older pipeline. A workspace that never had one starts with `cockpit init` instead: it detects the repos, the provider and the coding tool, takes what production is (`--production-host` or `--no-production`), and writes the pack and the binding with `--write`. Keep the workspace. Do not copy the old plugin's scripts, hosts, or product names into this one.
+
+1. Read only. Classify the workspace.
+2. Snapshot Hermes home before the first write there.
+3. `cockpit migrate discover` from the workspace. It records the repos that are children of the workspace or of its parent (each path starting at the workspace's parent, each with its own base branch), an absolute skills directory (`.cursor/skills` when that directory exists, plus any `SKILL.md` tree inside the workspace), and nothing from the home directory.
+4. `cockpit migrate draft` writes `cockpit-pack/` through the writer `cockpit init` uses. It replaces no file and refuses a folder that is not empty. The provider and model come from the Hermes home, and one slot gives a worker and a tester seat. Check each of these:
+   - `agent.home` is the workspace. The coding CLI starts there, so that directory's skills, rules, and MCP config load.
+   - `agent.add_dirs` is the parent of the workspace when sibling repositories live there. The ticket checkout is named on the card and is not a replacement for the home.
+   - `agent.args` is `--approve-mcps` when `.cursor/mcp.json` exists: the Cursor CLI leaves the workspace's MCP servers unapproved in a headless run without it. Add any other flags that CLI needs. Do not put secrets in this list.
+   - `skills.yaml` `router` is the workspace's agent-instructions file (`AGENTS.md`, or the one a coding tool reads in its place) when the workspace has one. The card says to follow that file and names only the skills for the kickoff mode. The router chooses the one extra skill the task needs. A workspace with neither file gets no router, and the kickoff list is the whole procedure.
+   - `staging.yaml` `origins`: the app, api, and auth URLs the lanes actually open. The draft writes no `staging.yaml`: write it with the origins (doctor warns until one has a URL).
+   - `egress.yaml` `production_hosts`: one regex per production hostname, or `no_production_hosts: true` when the project has no production. The draft leaves it unanswered, and doctor stays red until it is answered. Leave staging and the local domain off that list. `terminal_deny`: commands that change the shared runtime and are not already denied by the kernel. Do not deny read-only inspection or the test gate.
+   - `repos.yaml` `gates`: the project's own test command for that repo, run from the workspace. A repo with no suite keeps an empty list. Doctor warns until one repo has a gate.
+5. Stop for go, go with changes, or stop. A secret in the draft aborts before the first write.
+6. On go, write `~/.hermes/cockpit.yaml` at the pack and the workspace, then `cockpit setup`. Setup writes each seat's coding-CLI arguments from `agent.args`, including `--workspace` for the agent home and `--add-dir` for each extra root.
+7. `cockpit doctor` must print no error: each line comes with the fix that resolves it. A missing agent home, a missing router file, unanswered production hosts, or an unsealed vault key that guards stored logins is an error and stops the skill. Empty staging and no repo gate are warnings: resolve them or say why they stand. `cockpit migrate verify` still fails on both. Lane logins stay in the Hermes vault (`hermes vault add`, browser fill). The file that vault silently depends on is `~/.hermes/vault/vault.key`. `setup` wraps it to a GPG public key (`git config --global user.signingkey` when that public key is on the machine, otherwise the only public key) and writes `~/.hermes/vault/vault.key.gpg` plus `recipient`. No public key prints `vault init pending` and does not fail setup. Several public keys need `cockpit vault init --key <fingerprint>`. The private key is not required to init, to wrap, or to add a login. It is required to unwrap `vault.key` and to read a secret. The weekly export (`cockpit export`) keeps the last four copies under `~/.hermes/backups/vault/` (wrapped key, `vault.json.enc`, entries, fingerprint — never the plaintext `vault.key`). That directory is the Hermes installation, not the workspace, so the workspace commit cannot take a credential. `cockpit vault restore` puts the newest copy back and unwraps when the private key is present. A missing wrap is a red doctor and a fix-watcher Inbox row from that export. Workspace records live in `hermes/`: `qa/<ticket>`, `watch`, `platform`, `chat`, and `outbox`.
+8. `cockpit migrate rollback <snapshot>` restores the snapshot and does not delete `hermes/`.

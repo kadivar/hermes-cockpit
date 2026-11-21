@@ -1,0 +1,21 @@
+#!/bin/sh
+# SPDX-FileCopyrightText: 2026 Mohammadreza Kadivar
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# Fixture runtime for the north site: --slot N --do VERB [--port P] [-- ARGS]; one line per call in $COCKPIT_ROOT/north-runtime.log.
+while [ $# -gt 0 ]; do case "$1" in --slot) slot=$2; shift 2;; --do) verb=$2; shift 2;; --port) port=$2; shift 2;; --) shift; break;; *) break;; esac; done
+echo "$verb slot=$slot env=$COCKPIT_SLOT ticket=$COCKPIT_TICKET owner=$COCKPIT_OWNER lane=$COCKPIT_LANE port=$port args=$*" >> "$COCKPIT_ROOT/north-runtime.log"
+mark="$COCKPIT_ROOT/north-$slot"
+case "$verb" in
+  start) [ -f "$mark.fail" ] && { echo "north web would not start" >&2; exit 1; }; exit 0;;
+  stop|wipe) exit 0;;
+  check) [ -f "$mark.warming" ] && exit 2; [ -f "$mark.dependency" ] && { echo "north cache is down" >&2; exit 3; }; echo ready;;
+  describe) printf '{"web": "up", "web_port": %s}\n' "$port";;
+  run) echo "ran: $*";;
+  suite) echo "north suite: $*"; [ -f "$mark.red" ] && exit 1; exit 0;;
+  demo-user) printf '{"user": "north-%s", "password": "demo-north-%s"}\n' "$COCKPIT_TICKET" "$slot";;
+  cache-warm) echo "cache warm on $port";;
+  cdn) echo "$1" > "$mark.cdn"; cat "$mark.cdn";;
+  probe) [ -f "$mark.empty" ] && { echo '{"present": false}'; exit 0; }; echo '{"present": true, "have": ["site"]}';;
+  capacity) [ -f "$mark.empty" ] && { echo 0; exit 0; }; echo 3;;
+esac

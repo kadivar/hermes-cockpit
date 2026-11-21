@@ -1,0 +1,32 @@
+# SPDX-FileCopyrightText: 2026 Mohammadreza Kadivar
+# SPDX-License-Identifier: AGPL-3.0-or-later
+router: router.md
+kickoff:
+  intake: [analyze-ticket, cockpit:outbox]
+  review: [pr-review, local-review, finding-moderation, cockpit:outbox]
+  test: [test, jira-tickets, cockpit:outbox]
+  analyst: [analyze-ticket, cockpit:outbox]
+  bumps: [organize-bumps, jira-tickets, cockpit:outbox]
+  worker: [cockpit:outbox]
+  tester: [test, outbox, cockpit:outbox]
+cards:
+  body: cards/body.md
+  decompose: [work, review]
+  skills:
+    pr-treat: [finding-moderation]
+    test-kickoff: [jira-tickets]
+  titles:
+    pr-treat: "{ticket}: treat the PR"
+intent:
+  pr-review-submit: [pr-review]
+  pr-comment: [pr-review]
+  pr-patch-apply: [pr-review]
+  pr-edit: [pr-review, open-prs]
+  open-pr: [open-prs]
+  push-branch: []
+  tracker-comment: [jira-tickets]
+  tracker-create: [[jira-tickets, analyze-ticket]]
+  tracker-transition: [jira-tickets]
+  ci-rerun: []
+  ticket-done: []
+  infra-note: []

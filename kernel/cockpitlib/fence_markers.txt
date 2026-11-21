@@ -1,0 +1,4 @@
+# Environment names that mean an automated editor session. Not shown in the page.
+CLAUDECODE
+CURSOR_AGENT
+CURSOR_TRACE_ID

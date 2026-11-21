@@ -1,0 +1,22 @@
+#!/bin/sh
+# SPDX-FileCopyrightText: 2026 Mohammadreza Kadivar
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# Fixture helper runtime: one line per call in $COCKPIT_ROOT/acme-helpers.log; marker files steer its answers.
+verb=$1; name=${2:-}; shift; [ $# -gt 0 ] && shift
+echo "$verb $name $*" >> "$COCKPIT_ROOT/acme-helpers.log"
+mark="$COCKPIT_ROOT/acme-helper-$name"
+case "$verb" in
+  status)
+    echo "acme stack status"
+    echo "queue: running (pid 41)"
+    echo "ledger-db: stopped"
+    echo "web local: skipped (ledger-db is stopped)"
+    echo "a line that is not a row";;
+  start|restart|use)
+    [ -f "$mark.slow" ] && sleep 2
+    [ -f "$mark.fail" ] && { echo "acme $name would not start" >&2; exit 1; }
+    [ "$name" = web ] && { echo '{"url": "http://127.0.0.1:8100"}'; exit 0; }
+    echo "acme $name $verb $*";;
+  stop) echo "acme $name stopped";;
+esac

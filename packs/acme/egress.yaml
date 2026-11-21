@@ -1,0 +1,19 @@
+# SPDX-FileCopyrightText: 2026 Mohammadreza Kadivar
+# SPDX-License-Identifier: AGPL-3.0-or-later
+terminal_deny:
+  - "\\bvaultctl\\s+(destroy|purge)\\b"
+production_hosts:
+  - "app\\.acme\\.example"
+sacred: []
+infra_paths: []
+destructive_http: ["staging\\.acme\\.test"]
+mcp_allow: ["mcp__ledger__create_note"]
+role_deny:
+  tester: ["\\bvaultctl\\s+read\\b"]
+write_roots:
+  tester: ["{workspace}/acme-evidence"]
+local_domains: ["\\.acme\\.internal\\b"]
+deny_tools: ["browser_cdp"]
+host_probes:
+  refused: ["curl https://app.acme.example/login"]
+  allowed: ["git -C /srv/acme status"]

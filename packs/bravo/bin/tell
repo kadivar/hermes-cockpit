@@ -1,0 +1,8 @@
+#!/bin/sh
+# SPDX-FileCopyrightText: 2026 Mohammadreza Kadivar
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# Fixture notifier: one line per message in $COCKPIT_ROOT/notified.log; FAIL in the body fails the send.
+body=$(cat)
+case "$body" in *FAIL*) echo "north relay refused" >&2; exit 1;; esac
+printf "bravo|%s|%s|%s\n" "$COCKPIT_EVENT" "$*" "$body" >> "$COCKPIT_ROOT/notified.log"

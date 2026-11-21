@@ -1,0 +1,31 @@
+{
+  "hermes": "0.23.0",
+  "recorded_from": "hermes-agent 2bd378ed1b (0.23.0); shapes unchanged from 0.22.2 (d923a5eb48)",
+  "telemetry_schema_version": "hermes.observer.v1",
+  "dispatch": "callback(**payload) when the callback takes **kwargs, else only the payload keys it names",
+  "events": {
+    "pre_tool_call": {
+      "source": "hermes_cli/plugins.py:1923-1927 (hermes_cli.lifecycle.invoke_hook)",
+      "kwargs": ["tool_name", "args", "task_id", "session_id", "tool_call_id", "turn_id", "api_request_id", "middleware_trace", "telemetry_schema_version"],
+      "defaults": {"args": {}, "middleware_trace": []},
+      "block": {"action": "block", "requires": "message", "source": "hermes_cli/plugins.py:2007-2013"},
+      "fail_closed": true
+    },
+    "transform_tool_result": {
+      "source": "model_tools.py:873-875",
+      "kwargs": ["tool_name", "args", "result", "task_id", "session_id", "tool_call_id", "turn_id", "api_request_id", "duration_ms", "status", "error_type", "error_message", "telemetry_schema_version"],
+      "defaults": {"args": {}, "duration_ms": 0, "status": "ok", "error_type": null, "error_message": null},
+      "returns": "str replaces the result; anything else keeps it"
+    },
+    "transform_terminal_output": {
+      "source": "tools/terminal_tool_result.py:144-146",
+      "kwargs": ["command", "output", "returncode", "task_id", "env_type", "tool_call_id", "telemetry_schema_version"],
+      "defaults": {"returncode": 0, "env_type": "local"},
+      "returns": "str replaces the output; anything else keeps it"
+    }
+  },
+  "shell_hook": {
+    "source": "agent/shell_hooks.py:455-482",
+    "block": "stdout JSON {action|decision: block} with message (or reason) as the text; exit 2 blocks on its own"
+  }
+}

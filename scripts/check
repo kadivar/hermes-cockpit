@@ -1,0 +1,799 @@
+#!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2026 Mohammadreza Kadivar
+# SPDX-License-Identifier: AGPL-3.0-or-later
+"""Everything CI runs, cheapest first, as one command. CI calls this and nothing else, so a green run here is a green
+run there. It ends with one line: `CHECK pass` or `CHECK fail · <failed ids>`.
+
+Standard library only, and no syntax newer than Python 3.9: it must start on a machine whose test tools are missing,
+because saying so is its first step.
+"""
+
+import argparse
+import ast
+import json
+import os
+import re
+import shlex
+import shutil
+import subprocess
+import sys
+import tempfile
+from xml.etree import ElementTree
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+RESULT = "check-result.json"
+SCHEMA = 1
+
+# In the order they run. `coverage` is measured by the run of `tests`: asking for it asks for that run.
+IDS = (
+    "env",
+    "generated",
+    "tokens",
+    "lint",
+    "typecheck",
+    "structure",
+    "security-surface",
+    "tests",
+    "coverage",
+    "dashboard",
+    "desktop",
+)
+QUICK = IDS[: IDS.index("tests")]
+# no figure is passed here: the one the run must reach is `fail_under` in pyproject.toml, the one place that writes it
+COVERAGE = ("--cov=cockpitlib", "--cov=dashboard.cockpit")
+TEST_LOCK = "requirements-test.lock"
+DEV_LOCK = "requirements-dev.lock"
+DEV_INSTALL = f"uv pip install --python .venv/bin/python --require-hashes -r {DEV_LOCK}"
+LOCKED_INSTALL = (
+    f"uv venv .venv && uv pip install --python .venv/bin/python --require-hashes -r {TEST_LOCK} && "
+    "uv pip install --python .venv/bin/python --no-deps -e ."
+)
+INSTALL = (
+    "has no pytest with pytest-xdist. Install the test tools:\n"
+    "  uv venv .venv && uv pip install --python .venv/bin/python -e '.[test]'"
+)
+
+# What only the owner may loosen. Files count whole; in the two large modules only the named block counts.
+SURFACE_FILES = (
+    ("fence", "kernel/cockpitlib/fence.py"),
+    ("fence", "kernel/cockpitlib/fence_markers.txt"),
+    ("egress-hook", "hooks/egress.py"),
+    ("doctor-security", "tests/contract/doctor-security.json"),
+)
+SURFACE_BLOCKS = (
+    ("kernel-denies", "kernel/cockpitlib/egress.py", r"^KERNEL_[A-Z_]+ = \("),
+    ("seat-approvals", "kernel/cockpitlib/setup.py", r"^\s*\"approvals\": \{"),
+)
+
+
+class Usage(Exception):
+    """A command line this script does not take; the message carries the right form."""
+
+
+# ---------- what to run ----------
+
+
+def select(only: str = "", quick: bool = False) -> list:
+    """The ids to run, in running order: all of them, the ones before the suite, or the ones named."""
+    if only and quick:
+        raise Usage("--only and --quick are two selections: give one, e.g. scripts/check --only tokens,structure")
+    if quick:
+        return list(QUICK)
+    if not only:
+        return list(IDS)
+    asked = [word.strip() for word in only.split(",") if word.strip()]
+    unknown = [word for word in asked if word not in IDS]
+    if unknown or not asked:
+        raise Usage(
+            f"--only takes ids from: {', '.join(IDS)} (got {only!r}), e.g. scripts/check --only tokens,structure"
+        )
+    if "coverage" in asked and "tests" not in asked:
+        asked.append("tests")
+    return [name for name in IDS if name in asked]
+
+
+def rerun(name: str) -> str:
+    return f"scripts/check --only {name}"
+
+
+def check(name: str, status: str, summary: str, failures=()) -> dict:
+    """One row of the result, in the shape check-result.json keeps."""
+    return {
+        "id": name,
+        "status": status,
+        "summary": " ".join(str(summary).split())[:300],
+        "failures": list(failures),
+        "rerun": rerun(name),
+    }
+
+
+def failure(test: str, file: str = "", line=None, message: str = "") -> dict:
+    return {"test": test, "file": file, "line": line, "message": " ".join(str(message).split())[:500]}
+
+
+def verdict(checks: list) -> tuple:
+    """("pass" | "fail", the last line): a skipped check never fails a run, a failed one always does."""
+    failed = [row["id"] for row in checks if row["status"] == "fail"]
+    return ("fail", "CHECK fail · " + ",".join(failed)) if failed else ("pass", "CHECK pass")
+
+
+def result(sha: str, checks: list, surface=()) -> dict:
+    return {
+        "schema": SCHEMA,
+        "sha": sha,
+        "verdict": verdict(checks)[0],
+        "checks": checks,
+        "security_surface": sorted(set(surface)),
+    }
+
+
+# ---------- reading pytest ----------
+
+
+def _node(classname: str, name: str) -> tuple:
+    """(test id, file) from a junit testcase: the module is every part up to the last test_ file name."""
+    parts = classname.split(".") if classname else []
+    last = max(
+        [index for index, part in enumerate(parts) if part.startswith("test_") or part == "conftest"],
+        default=len(parts) - 1,
+    )
+    file = "/".join(parts[: last + 1]) + ".py" if parts else ""
+    return "::".join([file, *parts[last + 1 :], name]) if file else name, file
+
+
+def junit_failures(text: str) -> list:
+    """Every failed or errored test of a junit report, with the line its own file names in the traceback."""
+    try:
+        root = ElementTree.fromstring(text)  # noqa: S314 - the junit report this script's own pytest run wrote
+    except ElementTree.ParseError:
+        return []
+    found = []
+    for case in root.iter("testcase"):
+        for told in [node for node in case if node.tag in ("failure", "error")]:
+            test, file = _node(case.get("classname", ""), case.get("name", ""))
+            body = told.text or ""
+            lines = [
+                int(match.group(2))
+                for match in re.finditer(r"^(\S+\.py):(\d+): ", body, re.MULTILINE)
+                if file and match.group(1).endswith(file)
+            ]
+            message = told.get("message") or (body.strip().splitlines() or [""])[-1]
+            found.append(failure(test, file, lines[-1] if lines else None, message))
+    return found
+
+
+def summary_failures(output: str) -> list:
+    """The FAILED and ERROR lines of pytest's short summary: what is left when no junit report was written."""
+    found = []
+    for match in re.finditer(r"^(?:FAILED|ERROR) (\S+)(?: - (.*))?$", output, re.MULTILINE):
+        found.append(failure(match.group(1), match.group(1).split("::")[0], None, match.group(2) or ""))
+    return found
+
+
+def counts(output: str) -> str:
+    """pytest's own last line ("12 passed, 1 skipped"), without its rule and its time."""
+    for line in reversed(output.splitlines()):
+        match = re.match(r"^(?:=+ )?((?:\d+ [a-z]+(?:, )?)+) in [\d.]+s", line.strip())
+        if match:
+            return match.group(1)
+    return ""
+
+
+def coverage_total(output: str):
+    """(reached, total, required) as pytest-cov states it, or None when the run never got that far. The required
+    figure is the one pytest-cov read from pyproject.toml: this script holds no figure of its own."""
+    match = re.search(r"Required test coverage of ([\d.]+)% (not reached|reached)\. Total coverage: ([\d.]+)%", output)
+    return (match.group(2) == "reached", match.group(3), match.group(1)) if match else None
+
+
+def open_reports(output: str) -> int:
+    return len(re.findall(r"^BUG \S+ \(", output, re.MULTILINE))
+
+
+def suite_checks(code: int, output: str, junit: str, want_coverage: bool, enforce: bool) -> list:
+    """The `tests` row, and the `coverage` row when it was asked for, from one run of the suite."""
+    failures = junit_failures(junit) or (summary_failures(output) if code else [])
+    covered = coverage_total(output) if want_coverage and enforce else None
+    below = covered is not None and not covered[0]
+    # pytest-cov fails a green run that is under the gate: that exit belongs to the coverage row alone
+    failed = bool(failures) or (code != 0 and not below)
+    told = counts(output) or f"pytest exited {code}"
+    reports = open_reports(output)
+    rows = [
+        check("tests", "fail" if failed else "pass", told + (f" · {reports} open reports" if reports else ""), failures)
+    ]
+    if not want_coverage:
+        return rows
+    if not enforce:
+        rows.append(check("coverage", "skip", "not enforced on this run (--no-coverage or CHECK_COVERAGE=0)"))
+    elif covered is None:
+        rows.append(
+            check(
+                "coverage",
+                "fail",
+                "the run printed no coverage total",
+                [failure("coverage", "", None, "the suite stopped before coverage was counted")],
+            )
+        )
+    else:
+        rows.append(
+            check(
+                "coverage",
+                "pass" if covered[0] else "fail",
+                f"{covered[1]}% of the {covered[2]}% required",
+                []
+                if covered[0]
+                else [
+                    failure("coverage", "pyproject.toml", None, f"total coverage {covered[1]}% is under {covered[2]}%")
+                ],
+            )
+        )
+    return rows
+
+
+# ---------- open bug reports ----------
+
+
+def reports(folder: str) -> list:
+    """Every open report under tests/reports/, read from the source: (test id, where, what)."""
+    found = []
+    if not os.path.isdir(folder):
+        return found
+    for name in sorted(os.listdir(folder)):
+        path = os.path.join(folder, name)
+        if not name.endswith(".py"):
+            continue
+        tree = ast.parse(open(path, encoding="utf-8").read(), path)
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            for mark in node.decorator_list:
+                if (
+                    isinstance(mark, ast.Call)
+                    and isinstance(mark.func, ast.Attribute)
+                    and mark.func.attr == "known_bug"
+                    and len(mark.args) == 2
+                    and all(isinstance(arg, ast.Constant) for arg in mark.args)
+                ):
+                    found.append(
+                        (f"tests/reports/{name}::{node.name}", str(mark.args[0].value), str(mark.args[1].value))
+                    )
+    return found
+
+
+# ---------- the security surface ----------
+
+
+def blocks(text: str, start: str) -> list:
+    """The line spans (first, last; from 1) of every block a pattern opens: it ends at the next closing bracket that
+    stands at the opening line's own indent, or on its own line when the brackets close there."""
+    lines = text.splitlines()
+    found = []
+    for index, line in enumerate(lines):
+        if not re.search(start, line):
+            continue
+        indent = len(line) - len(line.lstrip())
+        end = index
+        closed = line.rstrip().rstrip(",")[-1:] in ")}]" and all(
+            line.count(a) == line.count(b) for a, b in ("()", "{}", "[]")
+        )
+        for later in range(index + 1, 0 if closed else len(lines)):
+            other = lines[later]
+            if other.strip() and len(other) - len(other.lstrip()) == indent and other.lstrip()[0] in ")}]":
+                end = later
+                break
+        found.append((index + 1, end + 1))
+    return found
+
+
+def hunks(diff: str) -> tuple:
+    """(old spans, new spans) of a zero-context diff: the lines each side lost or gained."""
+    old, new = [], []
+    for match in re.finditer(r"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@", diff, re.MULTILINE):
+        start, count = int(match.group(1)), int(match.group(2) or 1)
+        if count:
+            old.append((start, start + count - 1))
+        start, count = int(match.group(3)), int(match.group(4) or 1)
+        if count:
+            new.append((start, start + count - 1))
+    return old, new
+
+
+def _meet(spans: list, areas: list) -> bool:
+    return any(first <= last and start <= end for start, last in spans for first, end in areas)
+
+
+def block_touched(before: str, after: str, diff: str, start: str) -> bool:
+    """Whether a diff changes a line of the named block, on either side. A block that cannot be found counts as touched."""
+    old, new = hunks(diff)
+    if not old and not new:
+        return False
+    was, now = blocks(before, start), blocks(after, start)
+    if (before and not was) or (after and not now) or not (was or now):
+        return True
+    return _meet(old, was) or _meet(new, now)
+
+
+def _git(*argv) -> tuple:
+    done = subprocess.run(["git", *argv], cwd=ROOT, capture_output=True, text=True, check=False)
+    return done.returncode, done.stdout
+
+
+def surface(base: str) -> list:
+    """The names of the owner-only surfaces the work since `base` touches, the working tree included."""
+    code, start = _git("merge-base", base, "HEAD")
+    start = start.strip() if code == 0 and start.strip() else base
+    changed = set(_git("diff", "--name-only", start, "--")[1].split())
+    found = [name for name, path in SURFACE_FILES if path in changed]
+    for name, path, pattern in SURFACE_BLOCKS:
+        if path not in changed:
+            continue
+        before = _git("show", f"{start}:{path}")[1]
+        full = os.path.join(ROOT, path)
+        after = open(full, encoding="utf-8").read() if os.path.isfile(full) else ""
+        if block_touched(before, after, _git("diff", "-U0", start, "--", path)[1], pattern):
+            found.append(name)
+    return sorted(set(found))
+
+
+# ---------- the steps ----------
+
+
+def run(argv: list, cwd: str = "", env=None) -> tuple:
+    """Run one command, its output shown as it comes and kept: (exit status, output)."""
+    print("$ " + " ".join(shlex.quote(str(word)) for word in argv), flush=True)
+    try:
+        child = subprocess.Popen(
+            argv,
+            cwd=cwd or ROOT,
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            errors="replace",
+        )
+    except OSError as error:
+        print(f"{argv[0]}: {error}", flush=True)
+        return 127, f"{argv[0]}: {error}"
+    kept = []
+    for line in child.stdout:
+        sys.stdout.write(line)
+        sys.stdout.flush()
+        kept.append(line)
+    return child.wait(), "".join(kept)
+
+
+def python() -> str:
+    """The interpreter scripts/test runs: the checkout's own venv, else the shell's python3."""
+    local = os.path.join(".venv", "bin", "python")  # every command here runs from the repository root
+    return local if os.access(os.path.join(ROOT, local), os.X_OK) else "python3"
+
+
+def _stale(modules: str, lock: str) -> bool:
+    """Whether desktop/node_modules is missing or older than the lock file it was installed from."""
+    marker = os.path.join(modules, ".package-lock.json")
+    if not os.path.isdir(modules) or not os.path.isfile(marker):
+        return True
+    return os.path.isfile(lock) and os.path.getmtime(marker) < os.path.getmtime(lock)
+
+
+def step_env(options) -> list:
+    problems = []
+    chosen = python()
+    need = "import pytest, xdist" + (", pytest_cov" if options.enforce else "")
+    if subprocess.run([chosen, "-c", need], cwd=ROOT, capture_output=True, check=False).returncode != 0:
+        print(f"scripts/check: {chosen} {INSTALL}", flush=True)
+        problems.append(failure("test tools", "pyproject.toml", None, f"{chosen} {INSTALL}"))
+    for tool in ("git", "node", "npm"):
+        if not shutil.which(tool):
+            print(f"scripts/check: {tool} is not on PATH", flush=True)
+            problems.append(failure(tool, "", None, f"{tool} is not on PATH"))
+    desktop = os.path.join(ROOT, "desktop")
+    if shutil.which("npm") and _stale(
+        os.path.join(desktop, "node_modules"), os.path.join(desktop, "package-lock.json")
+    ):
+        code, output = run(["npm", "ci"], cwd=desktop)
+        if code:
+            problems.append(
+                failure(
+                    "npm ci", "desktop/package-lock.json", None, (output.strip().splitlines() or ["npm ci failed"])[-1]
+                )
+            )
+    if problems:
+        return [
+            check("env", "fail", f"{len(problems)} missing: " + ", ".join(row["test"] for row in problems), problems)
+        ]
+    drift = lock_drift(chosen)
+    if drift:
+        # not a failure: a contributor's environment may be newer than the lock. CI installs the lock itself
+        print(
+            f"scripts/check: {len(drift)} installed package(s) differ from {TEST_LOCK} ({', '.join(drift[:6])}). CI runs the locked "
+            f"versions:\n  {LOCKED_INSTALL}",
+            flush=True,
+        )
+    return [
+        check(
+            "env",
+            "pass",
+            f"{chosen}, node and desktop/node_modules are in place"
+            + (f" · {len(drift)} package(s) differ from {TEST_LOCK}" if drift else ""),
+        )
+    ]
+
+
+def locked(text: str) -> dict:
+    """{name: version} of a hashed lock file's entries, names as the index spells them (lower case, dashes)."""
+    found = {}
+    for match in re.finditer(r"^([A-Za-z0-9][A-Za-z0-9._-]*)==([^\s;\\]+)", text, re.MULTILINE):
+        found[re.sub(r"[-_.]+", "-", match.group(1)).lower()] = match.group(2)
+    return found
+
+
+def lock_drift(chosen: str) -> list:
+    """The locked packages this environment has at another version or not at all, as "name locked/installed". Nothing
+    when there is no lock file or the environment cannot be asked."""
+    try:
+        want = locked(open(os.path.join(ROOT, TEST_LOCK), encoding="utf-8").read())
+    except OSError:
+        return []
+    ask = (
+        "import json, re, importlib.metadata as m; "
+        "print(json.dumps({re.sub(r'[-_.]+', '-', d.metadata['Name'] or '').lower(): d.version for d in m.distributions()}))"
+    )
+    done = subprocess.run([chosen, "-c", ask], cwd=ROOT, capture_output=True, text=True, check=False)
+    try:
+        have = json.loads(done.stdout) if done.returncode == 0 else None
+    except ValueError:
+        have = None
+    if not isinstance(have, dict):
+        return []
+    return [
+        f"{name} {version}/{have.get(name, 'absent')}"
+        for name, version in sorted(want.items())
+        if have.get(name) != version
+    ]
+
+
+def step_generated(options) -> list:
+    problems, notes = [], []
+    for script in ("scripts/gen-pointers", "scripts/gen"):
+        if not os.path.isfile(os.path.join(ROOT, script)):
+            print(f"{script} is not in this checkout: skipped", flush=True)
+            notes.append(f"{script} absent, skipped")
+            continue
+        code, output = run([os.path.join(ROOT, script), "--check"])
+        if code:
+            problems.append(
+                failure(script, script, None, f"a generated file is stale: run {script}. " + output.strip()[-300:])
+            )
+        else:
+            notes.append(f"{script} clean")
+    if problems:
+        return [check("generated", "fail", "stale: " + ", ".join(row["test"] for row in problems), problems)]
+    ran = any(note.endswith("clean") for note in notes)
+    return [check("generated", "pass" if ran else "skip", "; ".join(notes))]
+
+
+NO_NAMES = (
+    "EXTRA_TOKENS is empty and this run requires it (CHECK_EXTRA_TOKENS=required): set the repository secret "
+    "EXTRA_TOKENS to the private names the tree must never carry, one per line"
+)
+
+
+def step_tokens(options) -> list:
+    """The token guard. The private names it also looks for are never a file of the repository: CI hands them over as
+    the text of a secret (EXTRA_TOKENS), kept here in a file of this run alone and named to the guard."""
+    env, folder, told = dict(os.environ), "", ""
+    if options.extra_tokens.strip() and not env.get("COCKPIT_EXTRA_TOKENS"):
+        folder = tempfile.mkdtemp(prefix="check-")
+        env["COCKPIT_EXTRA_TOKENS"] = os.path.join(folder, "private-names.txt")
+        with open(env["COCKPIT_EXTRA_TOKENS"], "w", encoding="utf-8") as out:
+            out.write(options.extra_tokens.strip() + "\n")
+    if env.get("COCKPIT_EXTRA_TOKENS"):
+        told = " · with the private list"
+    elif options.require_extra:
+        print(f"scripts/check: {NO_NAMES}", flush=True)
+        return [
+            check(
+                "tokens",
+                "fail",
+                "the private list of names is not set",
+                [failure("tokens", ".github/workflows/ci.yml", None, NO_NAMES)],
+            )
+        ]
+    else:
+        # a pull request from a fork has no secrets, and neither has a contributor's machine
+        print(
+            "the private list of names is not set here (EXTRA_TOKENS): the guard runs with the committed lists and the shape rules",
+            flush=True,
+        )
+    try:
+        code, output = run([python(), os.path.join("tests", "guards", "grep_tokens.py")], env=env)
+    finally:
+        if folder:
+            shutil.rmtree(folder, ignore_errors=True)
+    if not code:
+        return [check("tokens", "pass", "no forbidden name in the scanned tree" + told)]
+    problems = []
+    for line in output.strip().splitlines():
+        # `<rule>: <what> in <path>:<line>`; a file name's own hit has no line
+        file, _, number = (line.rsplit(" in ", 1)[1] if " in " in line else "").partition(":")
+        problems.append(failure("tokens", file, int(number) if number.isdigit() else None, line))
+    return [check("tokens", "fail", f"{len(problems)} forbidden names", problems)]
+
+
+def tool(name: str) -> bool:
+    """Whether the interpreter scripts/test runs has that tool of the `dev` extra."""
+    done = subprocess.run([python(), "-m", name, "--version"], cwd=ROOT, capture_output=True, check=False)
+    return done.returncode == 0
+
+
+def without(step: str, name: str, required: bool, switch: str) -> list:
+    """The row of a step whose tool is not installed: a skip with the install line, or a failure where it is required."""
+    how = f"{name} is not installed in {python()}: {DEV_INSTALL}"
+    if required:
+        print(f"scripts/check: {how} (this run requires it: {switch}=required)", flush=True)
+        return [
+            check(step, "fail", f"{name} is not installed and {switch}=required", [failure(step, DEV_LOCK, None, how)])
+        ]
+    print(f"{how}\nskipped here; CI runs it ({switch}=required)", flush=True)
+    return [check(step, "skip", f"{name} is not installed: {DEV_INSTALL}")]
+
+
+def step_lint(options) -> list:
+    """The linter's rules and the formatter's layout, as pyproject.toml sets them. Without the tool the step is
+    skipped with the line that installs it; CI requires it."""
+    if not tool("ruff"):
+        return without("lint", "ruff", options.require_lint, "CHECK_LINT")
+    problems = []
+    code, output = run([python(), "-m", "ruff", "check", "--output-format", "concise", "."])
+    for line in output.splitlines() if code else ():
+        # `<path>:<line>:<column>: <rule> <what>`
+        match = re.match(r"^(\S[^:]*):(\d+):\d+: (\S+) (.*)$", line)
+        if match:
+            problems.append(failure(match.group(3), match.group(1), int(match.group(2)), match.group(4)))
+    if code and not problems:
+        problems.append(
+            failure("ruff check", "pyproject.toml", None, (output.strip().splitlines() or ["ruff failed"])[-1])
+        )
+    code, output = run([python(), "-m", "ruff", "format", "--check", "."])
+    layout = [line.split(": ", 1)[1].strip() for line in output.splitlines() if line.startswith("Would reformat: ")]
+    problems += [failure("format", path, None, "not in the formatter's layout: run `ruff format`") for path in layout]
+    if code and not layout:
+        problems.append(
+            failure("ruff format", "pyproject.toml", None, (output.strip().splitlines() or ["ruff failed"])[-1])
+        )
+    if problems:
+        rules, files = len(problems) - len(layout), len(layout)
+        return [check("lint", "fail", f"{rules} rule findings, {files} files not formatted", problems)]
+    return [check("lint", "pass", "no rule finding, and every file is in the formatter's layout")]
+
+
+def step_typecheck(options) -> list:
+    """The type checker's errors against their baseline (scripts/baselines --check types): a file may have as many as
+    tests/contract/type-errors.json counts for it and no more. Without the tool the step is skipped; CI requires it."""
+    if not tool("mypy"):
+        return without("typecheck", "mypy", options.require_types, "CHECK_TYPES")
+    code, output = run([python(), os.path.join("scripts", "baselines"), "--check", "types"])
+    last = (output.strip().splitlines() or [f"scripts/baselines exited {code}"])[-1]
+    if not code:
+        return [check("typecheck", "pass", last)]
+    problems = []
+    for line in output.splitlines():
+        # `<file> has <n> type error(s) …`, after the checker's own lines for that file
+        match = re.match(r"^(\S+) has \d+ type errors?\b.*$", line)
+        if match:
+            problems.append(failure("types", match.group(1), None, line))
+    return [check("typecheck", "fail", last, problems or [failure("types", "scripts/baselines", None, last)])]
+
+
+def _pytest(argv: list, workers: str) -> tuple:
+    """scripts/test with a junit report: (exit status, output, the report's text)."""
+    folder = tempfile.mkdtemp(prefix="check-")
+    report = os.path.join(folder, "junit.xml")
+    try:
+        code, output = run(
+            [os.path.join(ROOT, "scripts", "test"), *argv, f"--junitxml={report}"],
+            env={**os.environ, "TEST_WORKERS": workers},
+        )
+        return code, output, open(report, encoding="utf-8").read() if os.path.isfile(report) else ""
+    finally:
+        shutil.rmtree(folder, ignore_errors=True)
+
+
+def step_structure(options) -> list:
+    code, output, junit = _pytest(["-m", "structure", "-q"], "0")
+    problems = junit_failures(junit) or (summary_failures(output) if code else [])
+    if code == 5:
+        return [
+            check(
+                "structure",
+                "fail",
+                "no test carries the structure marker",
+                [failure("structure", "pyproject.toml", None, "nothing collected")],
+            )
+        ]
+    return [check("structure", "fail" if code else "pass", counts(output) or f"pytest exited {code}", problems)]
+
+
+def step_surface(options) -> list:
+    base = options.base
+    if not base and _git("rev-parse", "--verify", "--quiet", "origin/HEAD")[0] == 0:
+        base = "origin/HEAD"
+    if not base or _git("rev-parse", "--verify", "--quiet", base + "^{commit}")[0] != 0:
+        print("no base to compare with: pass --base <ref> (or CHECK_BASE)", flush=True)
+        return [check("security-surface", "skip", "no base ref: pass --base <ref> or set CHECK_BASE")]
+    found = surface(base)
+    options.surface = found
+    print("security surface touched: " + (", ".join(found) or "none"), flush=True)
+    told = (
+        ("touches " + ", ".join(found) + ": the owner reviews this change")
+        if found
+        else "touches none of the owner-only surfaces"
+    )
+    return [check("security-surface", "pass", told)]
+
+
+def step_tests(options) -> list:
+    want = "coverage" in options.selected
+    argv = ["-rs", *(COVERAGE if want and options.enforce else ()), *shlex.split(os.environ.get("CHECK_TEST_ARGS", ""))]
+    code, output, junit = _pytest(argv, str(options.workers))
+    return suite_checks(code, output, junit, want, options.enforce)
+
+
+def step_dashboard(options) -> list:
+    code, output = run(["node", os.path.join("tests", "support", "dashboard.mjs")])
+    last = (output.strip().splitlines() or [""])[-1]
+    return [
+        check(
+            "dashboard",
+            "fail" if code else "pass",
+            last or f"node exited {code}",
+            [failure("dashboard", "tests/support/dashboard.mjs", None, last)] if code else [],
+        )
+    ]
+
+
+def step_desktop(options) -> list:
+    desktop = os.path.join(ROOT, "desktop")
+    code, output = run(["npm", "test"], cwd=desktop)
+    last = (output.strip().splitlines() or [""])[-1]
+    if code:
+        problems = [
+            failure(line.split(None, 1)[1][:120], "desktop/test/rules.mjs", None, line)
+            for line in output.splitlines()
+            if re.match(r"^FAIL\s+\S", line)
+        ]
+        return [check("desktop", "fail", last, problems or [failure("npm test", "desktop/test", None, last)])]
+    code, built = run(["npm", "run", "build"], cwd=desktop)
+    if code:
+        return [
+            check(
+                "desktop",
+                "fail",
+                "the bundle does not build",
+                [failure("npm run build", "desktop/src", None, built.strip()[-300:])],
+            )
+        ]
+    # the committed bundle is the build of the committed sources
+    code, _diff = run(["git", "diff", "--exit-code", "--stat", "--", "desktop/plugin.js"])
+    if code:
+        return [
+            check(
+                "desktop",
+                "fail",
+                "desktop/plugin.js is not the bundle of desktop/src",
+                [failure("bundle", "desktop/plugin.js", None, "run `npm run build` in desktop/ and commit plugin.js")],
+            )
+        ]
+    return [check("desktop", "pass", last)]
+
+
+STEPS = {
+    "env": step_env,
+    "generated": step_generated,
+    "tokens": step_tokens,
+    "lint": step_lint,
+    "typecheck": step_typecheck,
+    "structure": step_structure,
+    "security-surface": step_surface,
+    "tests": step_tests,
+    "dashboard": step_dashboard,
+    "desktop": step_desktop,
+}
+
+
+def parser() -> argparse.ArgumentParser:
+    made = argparse.ArgumentParser(
+        prog="scripts/check",
+        description="Everything CI runs, cheapest first. Ids, in order: " + ", ".join(IDS) + ".",
+        epilog="CHECK_TEST_ARGS adds arguments to the suite's pytest (a file narrows the run to it): for trying this "
+        "script, never for a result you report. CHECK_BASE is --base; CHECK_COVERAGE=0 is --no-coverage. "
+        "COCKPIT_EXTRA_TOKENS names a local file of private names the token guard also refuses; in CI their text "
+        "comes as EXTRA_TOKENS, and CHECK_EXTRA_TOKENS=required fails the tokens step when it is empty. "
+        "lint and typecheck are skipped where their tool is not installed; CHECK_LINT=required and "
+        "CHECK_TYPES=required fail them instead.",
+    )
+    made.add_argument(
+        "--only", default="", metavar="ID[,ID…]", help="run these ids only; coverage brings tests with it"
+    )
+    made.add_argument("--quick", action="store_true", help="everything before the suite: " + ", ".join(QUICK))
+    made.add_argument("--json", action="store_true", help=f"also write {RESULT} at the repository root")
+    made.add_argument("--reports", action="store_true", help="list the open bug reports under tests/reports/ and stop")
+    made.add_argument(
+        "--workers",
+        type=int,
+        default=4,
+        metavar="N",
+        help="processes the suite runs on (TEST_WORKERS for scripts/test; default 4). A higher number can "
+        "starve everything else on a laptop",
+    )
+    made.add_argument(
+        "--base",
+        default=os.environ.get("CHECK_BASE", ""),
+        metavar="REF",
+        help="the ref security-surface compares with (default: origin/HEAD when it exists)",
+    )
+    made.add_argument(
+        "--no-coverage", action="store_true", help="run the suite without the coverage gate; CI enforces it on one cell"
+    )
+    return made
+
+
+def required(options) -> None:
+    """Which steps this run may not skip. CI sets these; a contributor's machine leaves them unset, and a step whose
+    tool or secret is missing is then a skip that says what to install or set."""
+    options.require_extra = os.environ.get("CHECK_EXTRA_TOKENS", "") == "required"
+    options.require_lint = os.environ.get("CHECK_LINT", "") == "required"
+    options.require_types = os.environ.get("CHECK_TYPES", "") == "required"
+
+
+def main(argv=None) -> int:
+    options = parser().parse_args(argv)
+    if options.reports:
+        found = reports(os.path.join(ROOT, "tests", "reports"))
+        for test, where, what in found:
+            print(f"BUG {test} ({where}): {what}")
+        print(f"{len(found)} open reports" if found else "no open reports")
+        return 0
+    try:
+        options.selected = select(options.only, options.quick)
+    except Usage as error:
+        print(f"scripts/check: {error}", file=sys.stderr)
+        return 2
+    if options.workers < 0:
+        print("scripts/check: --workers takes 0 or more, e.g. scripts/check --workers 2", file=sys.stderr)
+        return 2
+    options.enforce = not options.no_coverage and os.environ.get("CHECK_COVERAGE", "1") != "0"
+    # taken out of the environment at once: no later step, and no test, inherits the private names
+    options.extra_tokens = os.environ.pop("EXTRA_TOKENS", "")
+    required(options)
+    options.surface = []
+    checks, stopped = [], ""
+    for name in options.selected:
+        if name == "coverage":
+            continue  # the tests step writes this row
+        print(f"\n== {name} ==", flush=True)
+        if stopped:
+            rows = [check(name, "skip", f"not run: {stopped} failed")]
+            if name == "tests" and "coverage" in options.selected:
+                rows.append(check("coverage", "skip", f"not run: {stopped} failed"))
+        else:
+            rows = STEPS[name](options)
+        for row in rows:
+            print(f"-- {row['id']}: {row['status']} · {row['summary']}", flush=True)
+        checks.extend(rows)
+        if name == "env" and rows[0]["status"] == "fail":
+            stopped = "env"
+    state, line = verdict(checks)
+    if options.json:
+        sha = _git("rev-parse", "HEAD")[1].strip()
+        with open(os.path.join(ROOT, RESULT), "w", encoding="utf-8") as out:
+            json.dump(result(sha, checks, options.surface), out, indent=2)
+            out.write("\n")
+    print("\n" + line, flush=True)
+    return 0 if state == "pass" else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

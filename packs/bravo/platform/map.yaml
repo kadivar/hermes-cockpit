@@ -1,0 +1,29 @@
+# SPDX-FileCopyrightText: 2026 Mohammadreza Kadivar
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# Conceptual map for the bravo fixture. Different product from acme.
+version: 1
+repos: [ledger, site]
+
+areas:
+  - id: books
+    title: Books
+    summary: An accountant records a journal and reads it on the site.
+    features:
+      - id: post-journal
+        title: Post a journal
+        user: Records a balanced journal entry.
+        hld: The site form posts to the ledger journal route.
+        anchors:
+          - { repo: ledger, paths: ["journal/**"] }
+          - { repo: site, paths: ["books/**"] }
+        depends: [audit]
+
+components:
+  - id: audit
+    title: Audit trail
+    summary: An append-only record of who posted what.
+    hld: The ledger writes one audit row per post.
+    anchors:
+      - { repo: ledger, paths: ["audit/**"] }
+    used_by: [post-journal]

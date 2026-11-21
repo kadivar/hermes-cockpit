@@ -1,0 +1,106 @@
+#!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2026 Mohammadreza Kadivar
+# SPDX-License-Identifier: AGPL-3.0-or-later
+"""Test stand-in for the hermes CLI. It records cron jobs the way Hermes does, refuses a script the home lacks,
+and publishes a runtime command whose hermes_cli is tests/fake_hermes."""
+
+import json
+import os
+import secrets
+import sys
+
+
+def _home(argv):
+    home = os.environ["HERMES_HOME"]
+    if argv[:1] == ["--profile"]:
+        return os.path.join(home, "profiles", argv[1]), argv[2:]
+    return home, argv
+
+
+def _schedule(text):
+    if text[:-1].isdigit() and text[-1:] in ("m", "h"):
+        minutes = int(text[:-1]) * (60 if text.endswith("h") else 1)
+        return {"kind": "interval", "minutes": minutes, "display": f"every {minutes}m"}
+    return {"kind": "cron", "expr": text, "display": text}
+
+
+def _option(argv, name):
+    return argv[argv.index(name) + 1] if name in argv else None
+
+
+FAKE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "fake_hermes")
+
+
+def _runtime(argv):
+    """Like the published launcher: a command that runs a module inside this Hermes's environment."""
+    if os.environ.get("COCKPIT_STUB_NO_RUNTIME"):
+        return 0
+    module = _option(argv, "--module") or "hermes_cli.main"
+    code = f"import sys, runpy; sys.path.insert(0, {FAKE!r}); runpy.run_module('{module}', run_name='__main__', alter_sys=True)"
+    print(json.dumps([sys.executable, "-I", "-c", code]))
+    return 0
+
+
+def _set_default_workdir(home, slug, path):
+    """Like Hermes's write_board_metadata: the board must exist; an empty path clears the field."""
+    marker = os.path.join(home, "kanban", "boards", slug, "board.json")
+    if not os.path.isfile(marker):
+        print(f"kanban boards set-default-workdir: board {slug!r} does not exist", file=sys.stderr)
+        return 1
+    try:
+        meta = json.load(open(marker, encoding="utf-8"))
+    except ValueError:
+        meta = {"slug": slug}
+    meta["default_workdir"] = path or None
+    open(marker, "w", encoding="utf-8").write(json.dumps(meta, indent=2) + "\n")
+    print(f"Board {slug!r} default workdir set to {path!r}.")
+    return 0
+
+
+def main(argv):
+    if argv[:1] == ["--print-runtime-command"]:
+        return _runtime(argv)
+    if argv[:1] == ["--version"]:
+        if os.environ.get("COCKPIT_STUB_VERSION_SLEEP"):
+            import time
+
+            time.sleep(float(os.environ["COCKPIT_STUB_VERSION_SLEEP"]))
+        print(f"Hermes Agent v{os.environ.get('COCKPIT_STUB_VERSION') or '0.22.2'} (stub)")
+        return 0
+    home, argv = _home(argv)
+    if argv[:3] == ["kanban", "boards", "set-default-workdir"]:
+        return _set_default_workdir(home, argv[3], argv[4] if len(argv) > 4 else "")
+    if argv[:1] != ["cron"]:
+        return 0
+    path = os.path.join(home, "cron", "jobs.json")
+    data = json.load(open(path, encoding="utf-8")) if os.path.isfile(path) else {"jobs": []}
+    if argv[1] == "create":
+        script = _option(argv, "--script")
+        if not os.path.isfile(os.path.join(home, "scripts", script)):
+            print(
+                f"Failed to create job: Script file not found: {os.path.join(home, 'scripts', script)}", file=sys.stderr
+            )
+            return 1
+        data["jobs"].append(
+            {
+                "id": secrets.token_hex(6),
+                "name": _option(argv, "--name"),
+                "script": script,
+                "no_agent": "--no-agent" in argv,
+                "schedule": _schedule(argv[2]),
+            }
+        )
+    if argv[1] == "edit":
+        found = [job for job in data["jobs"] if job["id"] == argv[2]]
+        if not found:
+            print(f"Job not found: {argv[2]}", file=sys.stderr)
+            return 1
+        found[0]["schedule"] = _schedule(_option(argv, "--schedule"))
+    if argv[1] == "remove":
+        data["jobs"] = [job for job in data["jobs"] if job["id"] != argv[2]]
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    open(path, "w", encoding="utf-8").write(json.dumps(data, indent=2) + "\n")
+    return 0
+
+
+sys.exit(main(sys.argv[1:]))
