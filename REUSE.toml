@@ -22,6 +22,12 @@ path = ["*.json", "**/*.json", "**/*.txt", "*.lock"]
 SPDX-FileCopyrightText = "2026 Mohammadreza Kadivar"
 SPDX-License-Identifier = "AGPL-3.0-or-later"
 
+# The pictures the README and the repository's social preview show: binary, so no header can be written into them.
+[[annotations]]
+path = "docs/assets/**"
+SPDX-FileCopyrightText = "2026 Mohammadreza Kadivar"
+SPDX-License-Identifier = "AGPL-3.0-or-later"
+
 # Repository settings, and the two files a fixture pack copies into a worktree as they are.
 [[annotations]]
 path = [".gitignore", ".github/CODEOWNERS", "packs/*/files/**"]

@@ -15,8 +15,8 @@ permission notices are kept: they are kept below and in `LICENSES/MIT.txt`, and 
 
 | Package | Version | Licence | Copyright |
 |---|---|---|---|
-| `@xterm/xterm` | 5.5.0 | MIT | Copyright (c) 2017-2019, The xterm.js authors (https://github.com/xtermjs/xterm.js); Copyright (c) 2014-2016, SourceLair Private Company (https://www.sourcelair.com); Copyright (c) 2012-2013, Christopher Jeffrey (https://github.com/chjj/) |
-| `@xterm/addon-fit` | 0.10.0 | MIT | Copyright (c) 2019, The xterm.js authors (https://github.com/xtermjs/xterm.js) |
+| `@xterm/xterm` | 6.0.0 | MIT | Copyright (c) 2017-2019, The xterm.js authors (https://github.com/xtermjs/xterm.js); Copyright (c) 2014-2016, SourceLair Private Company (https://www.sourcelair.com); Copyright (c) 2012-2013, Christopher Jeffrey (https://github.com/chjj/) |
+| `@xterm/addon-fit` | 0.11.0 | MIT | Copyright (c) 2019, The xterm.js authors (https://github.com/xtermjs/xterm.js) |
 
 ## The MIT licence, under which both are used
 

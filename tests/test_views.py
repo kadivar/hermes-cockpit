@@ -268,6 +268,9 @@ def test_usage_groups_the_seats_and_the_coding_tool_by_lane_ticket_day_and_model
     assert "-x-wt-{ticket}" in text
     open(pack_file, "w", encoding="utf-8").write(text)
     now = time.time()
+    clock = time.localtime(now)
+    if clock.tm_hour * 3600 + clock.tm_min * 60 + clock.tm_sec < 300:
+        now -= 300  # the fixtures are today's: none may straddle midnight, or "today" is two days
     home = os.environ["COCKPIT_HERMES_HOME"]
     _state_db(
         os.path.join(home, "profiles", "worker-1", "state.db"),
@@ -878,15 +881,23 @@ def test_a_lane_s_own_coding_tool_transcript_streams_its_session(env, monkeypatc
         and tail["entries"][2]["summary"] == "git status"
     )
     # the coding-tool list and the job stream carry the lane's session, timed between the card's start and the last write
-    from cockpitlib import lane_transcripts
+    import datetime as dt
 
+    from cockpitlib import lane_transcripts
+    from cockpitlib.time_util import iso
+
+    # a stamp is a whole second. The clock is held on a minute boundary, where chopping the stamp text to
+    # "00Z" asks from that same second and a line read during it is not newer.
+    boundary = float(int(path.stat().st_mtime) // 60 * 60)
+    os.utime(path, (boundary, boundary))
+    monkeypatch.setattr(lane_transcripts.time, "time", lambda: boundary)
     card = {
         "id": "t_ab12",
         "ticket": "TASK-7",
         "assignee": "worker-1",
         "title": "TASK-7: dev",
         "status": "running",
-        "created_at": int(path.stat().st_mtime) - 60,
+        "created_at": int(boundary) - 60,
     }
     [row] = lane_transcripts.sessions([card, {**card, "id": "t_other"}])
     assert (
@@ -906,7 +917,7 @@ def test_a_lane_s_own_coding_tool_transcript_streams_its_session(env, monkeypatc
         handle.write(
             json.dumps({"role": "assistant", "message": {"content": [{"type": "text", "text": "done"}]}}) + "\n"
         )
-    later = lane_transcripts.job_rows([card], rows[-1]["ts"][:-3] + "00Z")
+    later = lane_transcripts.job_rows([card], iso(dt.datetime.fromtimestamp(boundary - 1, dt.UTC)))
     assert later[-1]["text"] == "done"
     os.utime(path, (1, 1))  # past RECENT_DAYS: no longer listed, and what was read of it is let go
     assert lane_transcripts.job_rows([card]) == [] and str(path) not in lane_transcripts._SEEN
