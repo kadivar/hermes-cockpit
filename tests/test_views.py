@@ -268,6 +268,9 @@ def test_usage_groups_the_seats_and_the_coding_tool_by_lane_ticket_day_and_model
     assert "-x-wt-{ticket}" in text
     open(pack_file, "w", encoding="utf-8").write(text)
     now = time.time()
+    clock = time.localtime(now)
+    if clock.tm_hour * 3600 + clock.tm_min * 60 + clock.tm_sec < 300:
+        now -= 300  # the fixtures are today's: none may straddle midnight, or "today" is two days
     home = os.environ["COCKPIT_HERMES_HOME"]
     _state_db(
         os.path.join(home, "profiles", "worker-1", "state.db"),
