@@ -5,6 +5,7 @@ reviewer, say), each the child of the one before. Intake writes the breakdown; t
 and the plan and makes the cards through the board."""
 
 import os
+import re
 
 from .errors import CockpitError
 from .paths import qa_of
@@ -35,6 +36,16 @@ def body_template(pack) -> str:
     if path:
         return open(path, encoding="utf-8").read()
     return DEFAULT_BODY
+
+
+def _model_id(text) -> str:
+    """The row's `model` as a model id, or "" when it is not one. The field is a card's model override: Hermes sends
+    it to the provider as the model name. Intake wrote what its contract calls the worker's level, "sonnet high +
+    advisor", and both work cards of a ticket failed twice on the provider's 404 ("model: sonnet high + advisor") and
+    were given up. A model id has no spaces; a description of a level is the lane's own configuration
+    (the pack's roles), so it is not passed on."""
+    value = str(text or "").strip()
+    return value if value and not re.search(r"[\s+,;]", value) else ""
 
 
 def check(pack, ticket: str, breakdown) -> list:
@@ -70,7 +81,7 @@ def check(pack, ticket: str, breakdown) -> list:
                 "slot": str(row.get("slot") or "auto"),
                 "prs": [str(item) for item in prs],
                 "plan_gate": gate,
-                "model": str(row.get("model") or ""),
+                "model": _model_id(row.get("model")),
                 "note": str(row.get("note") or ""),
                 **({"after": str(row["after"])} if row.get("after") else {}),
             }
