@@ -1099,6 +1099,8 @@ STEPS = (
     ("reclaim-dead", reclaim_dead),
     # provider quotas: last good plan readings, provider-limit holds, ready cards wait at the ceiling (cockpitlib.quota)
     ("quota", lambda pack: __import__("cockpitlib.quota", fromlist=["step"]).step(pack)),
+    # a card a lane parked as scheduled: ready again at its SCHEDULED_UNTIL, an Inbox row while it waits
+    ("wake-scheduled", lambda pack: __import__("cockpitlib.scheduled", fromlist=["step"]).step(pack)),
     ("unguard", unguard),
     ("awake", awake),
     ("return-lends", return_lends),

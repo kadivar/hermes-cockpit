@@ -3,7 +3,7 @@
 """Cockpit's own Inbox rows, and the buttons on them.
 
 A situation only the human can end (an intent no sweep decides, a return nobody amends, a provider hold, cards parked at
-the budget ceiling) is a row under the plugin name `cockpit`, written through the same file contract every plugin uses
+the budget ceiling, a card a lane parked as scheduled) is a row under the plugin name `cockpit`, written through the same file contract every plugin uses
 (cockpitlib.inbox): the Inbox opens its pane and a button queues the act the row itself declared. Cockpit is the
 plugin that wrote the row, so the route drains the queue at once (`drain`) instead of waiting for a pass. An act
 that is refused says why on the row; one that worked removes the row, and the step that raised it puts it back if the
@@ -102,6 +102,12 @@ def _release(pack, act) -> str:
     return release_parked(pack, act.get("provider") or "")
 
 
+def _wake(pack, act) -> str:
+    from .scheduled import wake
+
+    return wake(pack, act.get("card") or "")
+
+
 HANDLERS = {
     "sweep": _sweep,
     "send-back": _send_back,
@@ -109,6 +115,7 @@ HANDLERS = {
     "end-hold": _end_hold,
     "retry-read": _retry_read,
     "release": _release,
+    "wake": _wake,
 }
 
 
